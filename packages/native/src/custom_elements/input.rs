@@ -452,6 +452,7 @@ impl CustomElement for TextEditorElement {
                 editor = editor.overflow_hidden();
             }
         }
+        editor = crate::renderer::apply_default_focus_ring(editor, ctx.style, ctx.focus_ring);
         if ctx
             .style
             .and_then(|style| style.position.as_deref())

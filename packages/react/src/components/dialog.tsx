@@ -12,6 +12,7 @@ import type { EventPayload } from "@gpuix/native"
 import { resolveFocusTarget } from "@gpuix/native/host"
 import type { FocusTarget, KeyEvent, Props, PublicInstance } from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
+import { buttonProps } from "./button.js"
 import {
   renderSlot,
   setRefs,
@@ -33,11 +34,6 @@ function useDialogContext(name: string): DialogContextValue {
   const context = useContext(DialogContext)
   if (!context) throw new Error(`${name} must be used inside Dialog`)
   return context
-}
-
-/** Enter and Space activate a focused part, like a `<button>`. */
-function isActivationKey(event: KeyEvent): boolean {
-  return event.key === "enter" || event.key === "space"
 }
 
 export interface DialogProps {
@@ -80,7 +76,7 @@ export interface DialogTriggerProps extends Props {
 }
 
 export const DialogTrigger = forwardRef<PublicInstance, DialogTriggerProps>(
-  function DialogTrigger({ asChild, children, onClick, onKeyDown, ...props }, forwardedRef) {
+  function DialogTrigger({ asChild, children, onClick, onKeyDown, onKeyUp, ...props }, forwardedRef) {
     const context = useDialogContext("DialogTrigger")
     const { triggerRef } = context
     // Stable, so React does not detach it (set null) in the commit that
@@ -95,14 +91,15 @@ export const DialogTrigger = forwardRef<PublicInstance, DialogTriggerProps>(
       props: {
         ...props,
         "aria-expanded": context.open,
-        onClick: (event) => {
-          onClick?.(event)
-          context.setOpen(true)
-        },
-        onKeyDown: (event: KeyEvent) => {
-          onKeyDown?.(event)
-          if (isActivationKey(event)) context.setOpen(true)
-        },
+        ...buttonProps({
+          tabIndex: props.tabIndex,
+          onKeyDown,
+          onKeyUp,
+          onClick: (event) => {
+            onClick?.(event)
+            context.setOpen(true)
+          },
+        }),
       },
       ref,
       defaultTabIndex: 0,
@@ -234,21 +231,22 @@ export interface DialogCloseProps extends Props {
 }
 
 export const DialogClose = forwardRef<PublicInstance, DialogCloseProps>(
-  function DialogClose({ asChild, children, onClick, onKeyDown, ...props }, ref) {
+  function DialogClose({ asChild, children, onClick, onKeyDown, onKeyUp, ...props }, ref) {
     const context = useDialogContext("DialogClose")
     return renderSlot({
       asChild,
       children,
       props: {
         ...props,
-        onClick: (event) => {
-          onClick?.(event)
-          context.setOpen(false)
-        },
-        onKeyDown: (event: KeyEvent) => {
-          onKeyDown?.(event)
-          if (isActivationKey(event)) context.setOpen(false)
-        },
+        ...buttonProps({
+          tabIndex: props.tabIndex,
+          onKeyDown,
+          onKeyUp,
+          onClick: (event) => {
+            onClick?.(event)
+            context.setOpen(false)
+          },
+        }),
       },
       ref,
       defaultTabIndex: 0,

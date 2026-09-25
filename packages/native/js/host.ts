@@ -178,6 +178,12 @@ export interface StyleDesc {
   borderBottomLeftRadius?: number
   borderBottomRightRadius?: number
   boxShadow?: BoxShadow
+  /** CSS `outline`: a line outside the border box. Takes no layout space, so it
+   *  can appear on focus without moving anything. Width defaults to 1. */
+  outlineWidth?: number
+  outlineColor?: string
+  /** Gap between the border box and the outline. Negative draws it inside. */
+  outlineOffset?: number
 
   fontSize?: number
   fontFamily?: string
@@ -204,12 +210,23 @@ export interface StyleDesc {
   userSelect?: "text" | "none" | "auto"
   /** Selection wash colour for this subtree. Defaults to the theme accent at 35%. */
   selectionColor?: string
+  /** Colour of the default keyboard focus ring for this subtree. Inherited.
+   *  Defaults to the theme accent. `"transparent"` turns it off. */
+  focusRingColor?: string
 
   // Pseudo-selector styles — applied by GPUI natively (no JS round-trip).
-  // Nesting is one level deep: hover/active cannot contain hover/active.
-  hover?: Omit<StyleDesc, "hover" | "active">
-  active?: Omit<StyleDesc, "hover" | "active">
+  // Nesting is one level deep: a state style cannot contain another.
+  hover?: StateStyleDesc
+  active?: StateStyleDesc
+  /** While the element has focus, from any input. Needs a focusable element
+   *  (`tabIndex`, a key or focus listener, `<input>`, `<textarea>`). */
+  focus?: StateStyleDesc
+  /** While focused after keyboard input, like CSS `:focus-visible`. Replaces
+   *  the default focus ring. */
+  focusVisible?: StateStyleDesc
 }
+
+export type StateStyleDesc = Omit<StyleDesc, "hover" | "active" | "focus" | "focusVisible">
 
 // Element types supported by GPUIX
 export type ElementType =

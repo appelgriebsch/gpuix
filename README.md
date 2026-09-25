@@ -1943,6 +1943,7 @@ Each primitive has a dedicated namespace entry point:
 
 | Import | Main parts |
 |---|---|
+| `@gpuix/react/button` | `Button`, `buttonProps` |
 | `@gpuix/react/select` | `Root`, `Trigger`, `Value`, `Content`, `Item` |
 | `@gpuix/react/combobox` | `Root`, `Input`, `Content`, `List`, `Item`, `Empty` |
 | `@gpuix/react/tooltip` | `Provider`, `Root`, `Trigger`, `Content` |
@@ -2212,6 +2213,31 @@ same commit as mount.
 const box = renderer.getElementBounds?.(ref.current.id)
 // { x, y, width, height }
 ```
+
+### Button
+
+GPUIX has no native `<button>`, so a `div` with `onClick` is not reachable with
+Tab and ignores the keyboard. `Button` is the [Base UI Button](https://base-ui.com/react/components/button):
+
+```tsx
+import { Button } from '@gpuix/react/button'
+
+<Button onClick={save} disabled={saving} style={(state) => ({ opacity: state.disabled ? 0.5 : 1 })}>
+  Save
+</Button>
+```
+
+| Behavior | Detail |
+|---|---|
+| Tab stop | `tabIndex` 0, `role="button"`, default focus ring |
+| `onClick` | Press, **Enter** on key down (not on repeat), **Space** on key up |
+| `disabled` | No `onClick`, leaves the Tab order |
+| `focusableWhenDisabled` | Stays in the Tab order while disabled, for a busy "Saving…" button |
+| `asChild` | Merges the behavior into your own element |
+| `style` | Object, or a function of `{ disabled }` |
+
+`buttonProps(behavior)` returns the same props for your own parts.
+`Dialog.Trigger` and `Dialog.Close` are built on it.
 
 ### Dialog
 
@@ -2987,7 +3013,7 @@ CSS-like styling via the `style` prop:
 
 **Position:** `position` (`"relative"` | `"absolute"` | `"fixed"`), `top`, `right`, `bottom`, `left` — `"fixed"` lays out like `"absolute"`, because GPUI has no scrolling document to be fixed against
 
-**Visual:** `background`, `backgroundColor`, `color`, `opacity`, `cursor`, `pointerEvents`, `borderRadius`, `borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomLeftRadius`, `borderBottomRightRadius`, `borderWidth`, `borderTopWidth`, `borderRightWidth`, `borderBottomWidth`, `borderLeftWidth`, `borderColor`, `boxShadow`
+**Visual:** `background`, `backgroundColor`, `color`, `opacity`, `cursor`, `pointerEvents`, `borderRadius`, `borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomLeftRadius`, `borderBottomRightRadius`, `borderWidth`, `borderTopWidth`, `borderRightWidth`, `borderBottomWidth`, `borderLeftWidth`, `borderColor`, `boxShadow`, `outlineWidth`, `outlineColor`, `outlineOffset`
 
 ### Cursors
 
@@ -3101,6 +3127,8 @@ Limited relative-color forms can derive a new color from a base value:
 
 **Selection:** `userSelect` (`"text"` | `"none"`), `selectionColor` — both inherit down the tree
 
+**Focus:** `focusRingColor` inherits down the tree. See [Focus styles](#focus-styles)
+
 ### Hover and active
 
 `hover` and `active` are **nested style objects**. GPUI applies them natively
@@ -3129,6 +3157,46 @@ They work on **every** element, including `<text>`, `<code>`, `<markdown>`,
 `<virtual-list>`, whose `style` type rejects them: gpui's list has no
 interactive identity to hold a hovered or pressed state, so put them on a
 wrapping `<div>`.
+
+### Focus styles
+
+`focus` and `focusVisible` are nested style objects too, like `hover`. GPUI
+applies them natively.
+
+| Key | Applies while |
+|---|---|
+| `focus` | The element has focus, from any input |
+| `focusVisible` | It has focus and the last input was the keyboard, like CSS `:focus-visible` |
+
+```tsx
+<div
+  tabIndex={0}
+  style={{
+    borderRadius: 8,
+    backgroundColor: '#313244',
+    focusVisible: { outlineWidth: 2, outlineColor: '#89b4fa', outlineOffset: 2 },
+  }}
+/>
+```
+
+They need a **focusable** element: `tabIndex`, a key or focus listener,
+`<input>`, `<textarea>`, or a primitive such as `Button`.
+
+**Default ring.** Every focusable element gets a 2px `focusVisible` ring in the
+theme accent, like a browser. A press with the mouse shows no ring, Tab does.
+The element's own `focusVisible` replaces it. Change the colour for a subtree
+with `focusRingColor`, or turn it off with `"transparent"`:
+
+```tsx
+<div style={{ focusRingColor: '#f38ba8' }}>…</div>
+<div style={{ focusRingColor: 'transparent' }}>…</div>
+```
+
+**Outline, not border.** `outlineWidth`, `outlineColor` and `outlineOffset` draw
+a line outside the border box, like CSS `outline`. It takes **no layout space**,
+so a ring that appears on focus moves nothing. A negative offset draws it
+inside. It follows `borderRadius`. A parent with `overflow: "hidden"` clips it,
+like in a browser.
 
 > **Note: `white-space: pre` is not supported.** GPUI's text system only has `normal` (wraps) and `nowrap` (single line). To preserve newlines like HTML `<pre>`, split your text on `\n` in React and render each line as a separate `<text>` element in a flex column:
 >

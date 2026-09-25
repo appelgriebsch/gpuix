@@ -1766,3 +1766,55 @@ describeNative("motion", () => {
     expect(renderer.getPaintedText()).toContain("Visible fallback")
   })
 })
+
+describeNative("focus styles", () => {
+  // One renderer per scene, so each capture is the frame after the input
+  // that decided focus-visible (a keyboard Tab or a mouse press).
+  function scene({ ringColor, focusVisible }: { ringColor?: string; focusVisible?: object } = {}) {
+    const root = createTestRoot({ width: 240, height: 120 })
+    root.render(
+      <div style={{ display: "flex", gap: 24, padding: 32, width: "100%", height: "100%", backgroundColor: "#101010", focusRingColor: ringColor }}>
+        <div autoFocus tabIndex={0} testId="start" style={{ width: 1, height: 1 }} />
+        <div tabIndex={0} testId="target" style={{ width: 80, height: 40, borderRadius: 8, backgroundColor: "#303030", focusVisible }} />
+      </div>
+    )
+    return root.renderer
+  }
+  const shot = (renderer, name: string) => {
+    const file = `${SCREENSHOT_DIR}/focus-${name}.png`
+    renderer.captureScreenshot(file)
+    return fs.readFileSync(file)
+  }
+  const target = (renderer) => renderer.getElementBounds(renderer.findByTestId("target").id)
+
+  // Each scene reads everything before the next test root replaces it.
+  function run(name: string, input: "none" | "tab" | "click", options = {}) {
+    const renderer = scene(options)
+    const box = target(renderer)
+    if (input === "tab") renderer.simulateKeystrokes("tab")
+    if (input === "click") {
+      renderer.nativeSimulateClick(box.x + 4, box.y + 4)
+      renderer.nativeSimulateMouseMove(200, 110)
+    }
+    const focused = renderer.getElement(renderer.getFocusedElementId())?.testId
+    return { png: shot(renderer, name), bounds: target(renderer), focused }
+  }
+
+  it("draws the default ring on keyboard focus only, without moving layout", () => {
+    const idle = run("idle", "none")
+    const keyboard = run("keyboard", "tab")
+    const mouse = run("mouse", "click")
+    const off = run("ring-off", "tab", { ringColor: "transparent" })
+    const custom = run("custom", "tab", { focusVisible: { backgroundColor: "#2563eb" } })
+
+    expect([keyboard.focused, mouse.focused, off.focused]).toEqual(["target", "target", "target"])
+    expect(keyboard.bounds).toEqual(idle.bounds)
+    expect(mouse.png.equals(idle.png)).toBe(true)
+    expect(off.png.equals(idle.png)).toBe(true)
+    if (!isCI) {
+      expect(keyboard.png.equals(idle.png)).toBe(false)
+      expect(custom.png.equals(keyboard.png)).toBe(false)
+      expect(custom.png.equals(idle.png)).toBe(false)
+    }
+  })
+})

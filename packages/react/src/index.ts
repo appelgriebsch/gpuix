@@ -69,6 +69,8 @@ export type {
   ComboboxTriggerProps,
   ComboboxValueProps,
 } from "./components/combobox.js"
+export { Button, buttonProps } from "./components/button.js"
+export type { ButtonBehavior, ButtonProps, ButtonState } from "./components/button.js"
 export {
   Dialog,
   DialogBackdrop,

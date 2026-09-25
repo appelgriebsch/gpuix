@@ -15,6 +15,7 @@ import type { FocusTarget, HostProps, KeyEvent } from "@gpuix/native/host"
 import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { useGpuixRequired } from "../root.js"
+import { buttonProps } from "./button.js"
 import { DismissableLayer, renderSlot } from "./floating.js"
 
 interface DialogState {
@@ -30,11 +31,6 @@ function context(name: string): DialogState {
   const value = useContext(DialogContext)
   if (!value) throw new Error(`${name} must be used inside Dialog`)
   return value
-}
-
-/** Enter and Space activate a focused part, like a `<button>`. */
-function isActivationKey(event: KeyEvent): boolean {
-  return event.key === "enter" || event.key === "space"
 }
 
 export interface DialogProps {
@@ -80,22 +76,25 @@ export function DialogTrigger(props: DialogTriggerProps): JSX.Element {
   return renderSlot({
     asChild: props.asChild,
     children: props.children,
-    props: {
-      ...props,
-      ref(element: HostElement) {
-        state.trigger.current = element
-        props.ref?.(element)
+    props: Object.defineProperties(
+      {
+        ...props,
+        ref(element: HostElement) {
+          state.trigger.current = element
+          props.ref?.(element)
+        },
+        get "aria-expanded"() { return state.open() },
       },
-      get "aria-expanded"() { return state.open() },
-      onClick(event: EventPayload) {
-        props.onClick?.(event)
-        state.setOpen(true)
-      },
-      onKeyDown(event: KeyEvent) {
-        props.onKeyDown?.(event)
-        if (isActivationKey(event)) state.setOpen(true)
-      },
-    },
+      Object.getOwnPropertyDescriptors(buttonProps({
+        get tabIndex() { return props.tabIndex },
+        onKeyDown: (event) => props.onKeyDown?.(event),
+        onKeyUp: (event) => props.onKeyUp?.(event),
+        onClick(event) {
+          props.onClick?.(event)
+          state.setOpen(true)
+        },
+      }))
+    ),
     defaultTabIndex: 0,
   })
 }
@@ -227,17 +226,18 @@ export function DialogClose(props: DialogCloseProps): JSX.Element {
   return renderSlot({
     asChild: props.asChild,
     children: props.children,
-    props: {
-      ...props,
-      onClick(event: EventPayload) {
-        props.onClick?.(event)
-        state.setOpen(false)
-      },
-      onKeyDown(event: KeyEvent) {
-        props.onKeyDown?.(event)
-        if (isActivationKey(event)) state.setOpen(false)
-      },
-    },
+    props: Object.defineProperties(
+      { ...props },
+      Object.getOwnPropertyDescriptors(buttonProps({
+        get tabIndex() { return props.tabIndex },
+        onKeyDown: (event) => props.onKeyDown?.(event),
+        onKeyUp: (event) => props.onKeyUp?.(event),
+        onClick(event) {
+          props.onClick?.(event)
+          state.setOpen(false)
+        },
+      }))
+    ),
     defaultTabIndex: 0,
   })
 }

@@ -4076,6 +4076,37 @@ pub(crate) struct Inherited {
     /// render returns, and on Windows and Linux the Node thread can edit text
     /// in between, so a stale range would paint over the wrong glyphs.
     pub highlight: Option<Arc<crate::text::HighlightContext>>,
+    /// Default `:focus-visible` ring for focusable elements. `None` when an
+    /// ancestor set `focusRingColor: "transparent"`.
+    pub focus_ring: Option<gpui::Outline>,
+}
+
+/// Default ring geometry. Paint only: an outline takes no layout space.
+const FOCUS_RING_WIDTH: f32 = 2.0;
+const FOCUS_RING_OFFSET: f32 = 1.0;
+
+fn focus_ring(color: gpui::Hsla) -> Option<gpui::Outline> {
+    (!color.is_transparent()).then(|| gpui::Outline {
+        width: gpui::px(FOCUS_RING_WIDTH),
+        color,
+        offset: gpui::px(FOCUS_RING_OFFSET),
+    })
+}
+
+/// A browser draws a focus ring on every focusable element; GPUIX does the
+/// same, so keyboard focus is never invisible. Only elements that track a
+/// focus handle get it, and a style's own `focusVisible` replaces it.
+pub(crate) fn apply_default_focus_ring<E: gpui::InteractiveElement>(
+    el: E,
+    style: Option<&StyleDesc>,
+    ring: Option<gpui::Outline>,
+) -> E {
+    match ring {
+        Some(ring) if style.is_none_or(|style| style.focus_visible.is_none()) => {
+            el.focus_visible(move |refinement| gpui::Styled::outline(refinement, ring))
+        }
+        _ => el,
+    }
 }
 
 impl Inherited {
@@ -4086,6 +4117,7 @@ impl Inherited {
             selectable: true,
             selection_wash: wash,
             highlight: None,
+            focus_ring: focus_ring(theme.accent),
         }
     }
 
@@ -4103,6 +4135,13 @@ impl Inherited {
             .and_then(crate::color::parse_color_rgba)
         {
             self.selection_wash = color.into();
+        }
+        if let Some(color) = style
+            .focus_ring_color
+            .as_deref()
+            .and_then(crate::color::parse_color_rgba)
+        {
+            self.focus_ring = focus_ring(color.into());
         }
         self
     }
@@ -4960,6 +4999,7 @@ pub(crate) fn build_element(
                 selection: ctx.selection.clone(),
                 selectable: inherited.selectable,
                 selection_wash: inherited.selection_wash,
+                focus_ring: inherited.focus_ring,
                 highlight_set: inherited.highlight.clone(),
                 props: &element.custom_props,
             };
@@ -5265,6 +5305,7 @@ pub(crate) fn build_host_container(
 
     if let Some(handle) = ctx.focus_handles.get(&element.id) {
         el = el.track_focus(handle);
+        el = apply_default_focus_ring(el, style, ctx.inherited.focus_ring);
     }
     if let Some(tab_index) = element
         .custom_props
@@ -5592,7 +5633,7 @@ pub(crate) fn apply_height<E: gpui::Styled>(el: E, dim: &crate::style::Dimension
     }
 }
 
-/// Base styles plus gpui's `hover` and `active` refinements.
+/// Base styles plus gpui's `hover`, `active`, `focus` and `focus_visible` refinements.
 ///
 /// Every stateful GPUI root must go through this, never `apply_styles` alone.
 /// `StyleDesc` carries `hover` and `active` for every element type, so a custom
@@ -5609,6 +5650,13 @@ where
     }
     if let Some(active_style) = style.active.as_deref() {
         el = el.active(|refinement| apply_styles(refinement, active_style));
+    }
+    // gpui applies these only to an element that called track_focus.
+    if let Some(focus_style) = style.focus.as_deref() {
+        el = el.focus(|refinement| apply_styles(refinement, focus_style));
+    }
+    if let Some(focus_visible_style) = style.focus_visible.as_deref() {
+        el = el.focus_visible(|refinement| apply_styles(refinement, focus_visible_style));
     }
     el
 }
@@ -5895,6 +5943,18 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
             .spread_radius(gpui::px(shadow.spread_radius as f32));
             el = el.shadow(vec![shadow]);
         }
+    }
+    if style.outline_width.is_some() || style.outline_color.is_some() {
+        let color = style
+            .outline_color
+            .as_deref()
+            .and_then(crate::color::parse_color_rgba)
+            .unwrap_or_else(|| gpui::transparent_black().into());
+        el = el.outline(gpui::Outline {
+            width: gpui::px(style.outline_width.unwrap_or(1.0).max(0.0) as f32),
+            color: color.into(),
+            offset: gpui::px(style.outline_offset.unwrap_or(0.0) as f32),
+        });
     }
     if style.visibility.as_deref() == Some("hidden") {
         el = el.invisible();

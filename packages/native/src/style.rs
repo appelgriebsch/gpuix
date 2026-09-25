@@ -198,6 +198,11 @@ pub struct StyleDesc {
     pub border_bottom_left_radius: Option<f64>,
     pub border_bottom_right_radius: Option<f64>,
     pub box_shadow: Option<BoxShadowValue>,
+    /// CSS `outline`: a line outside the border box that takes no layout
+    /// space, so it can appear on focus without moving anything.
+    pub outline_width: Option<f64>,
+    pub outline_color: Option<String>,
+    pub outline_offset: Option<f64>,
 
     // Text
     pub font_size: Option<f64>,
@@ -228,11 +233,19 @@ pub struct StyleDesc {
     /// Selection wash colour for this subtree. Defaults to the theme accent at
     /// 35% opacity, the same tone Comet uses.
     pub selection_color: Option<String>,
+    /// Colour of the default keyboard focus ring for this subtree. Inherited.
+    /// Defaults to the theme accent. `"transparent"` turns the ring off.
+    pub focus_ring_color: Option<String>,
 
     // Pseudo-selector styles — applied by GPUI natively (no JS round-trip).
     // Uses Box to avoid infinite-size struct (StyleDesc contains StyleDesc).
     pub hover: Option<Box<StyleDesc>>,
     pub active: Option<Box<StyleDesc>>,
+    /// While the element has focus, from any input. Needs a focusable element.
+    pub focus: Option<Box<StyleDesc>>,
+    /// While focused after keyboard input, like CSS `:focus-visible`.
+    /// Replaces the window's default focus ring when set.
+    pub focus_visible: Option<Box<StyleDesc>>,
 }
 
 pub use crate::color::{parse_color, parse_color_hex};

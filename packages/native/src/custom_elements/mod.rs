@@ -45,6 +45,8 @@ pub struct CustomRenderContext<'a> {
     pub selectable: bool,
     /// Inherited selection wash colour.
     pub selection_wash: gpui::Hsla,
+    /// Inherited default focus ring. See `renderer::apply_default_focus_ring`.
+    pub focus_ring: Option<gpui::Outline>,
     /// `highlight` declared by the nearest ancestor, unresolved.
     ///
     /// A native element generates its text during `render()`, so the retained

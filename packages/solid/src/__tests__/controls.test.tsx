@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "bun:test"
 import {
+  Button,
   Combobox,
   ComboboxContent,
   Dialog,
@@ -240,5 +241,32 @@ describe.skipIf(!hasNativeTestRenderer)("Solid controls", () => {
     app.renderer.simulateKeystrokes("escape")
     steps.push(`close: ${focused()}`)
     expect(steps).toEqual(["open: field", "close: launcher"])
+  })
+
+  it("activates a Button on Enter down and Space up, and skips it while disabled", () => {
+    const log: string[] = []
+    const [disabled, setDisabled] = createSignal(false)
+    const app = createTestRoot()
+    app.render(() => (
+      <div style={{ display: "flex", gap: 8 }}>
+        <div autoFocus tabIndex={0} testId="start" style={{ width: 20, height: 20 }} />
+        <Button testId="save" disabled={disabled()} onClick={() => log.push("save")} style={{ width: 60, height: 24 }}>
+          <text>Save</text>
+        </Button>
+        <div tabIndex={0} testId="end" style={{ width: 20, height: 20 }} />
+      </div>
+    ))
+    const focused = () => app.renderer.getElement(app.renderer.getFocusedElementId()!)?.testId
+    app.renderer.simulateKeystrokes("tab")
+    log.push(`focus ${focused()}`)
+    app.renderer.simulateKeystrokes("enter")
+    app.renderer.nativeSimulateKeyDown(app.renderer.getFocusedElementId()!, "space")
+    log.push("space down")
+    app.renderer.nativeSimulateKeyUp(app.renderer.getFocusedElementId()!, "space")
+    app.flushSync(() => setDisabled(true))
+    app.renderer.focusElement(app.renderer.findByTestId("start")!.id)
+    app.renderer.simulateKeystrokes("tab")
+    log.push(`focus ${focused()}`)
+    expect(log).toEqual(["focus save", "save", "space down", "save", "focus end"])
   })
 })

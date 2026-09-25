@@ -8,6 +8,7 @@ import { FloatingLayer } from "../components/floating"
 import * as SelectPrimitive from "../components/select"
 import * as TooltipPrimitive from "../components/tooltip"
 import * as DialogPrimitive from "../components/dialog"
+import { Button } from "../components/button"
 import {
   Combobox,
   ComboboxContent,
@@ -1389,5 +1390,54 @@ describeNative("floating controls", () => {
     renderer.simulateKeystrokes("tab")
     testRoot.render(<Demo late />)
     expect(renderer.getElement(renderer.getFocusedElementId())?.testId).toBe("b")
+  })
+
+  it("activates a Button like <button>: click, Enter down, Space up, disabled", () => {
+    const log = []
+    function Demo({ disabled }) {
+      return (
+        <div style={{ display: "flex", gap: 8, padding: 12 }}>
+          <div autoFocus tabIndex={0} testId="start" style={{ width: 20, height: 20 }} />
+          <Button testId="save" disabled={disabled} onClick={() => log.push("save")} style={{ width: 60, height: 24 }}>Save</Button>
+          <Button testId="busy" disabled focusableWhenDisabled onClick={() => log.push("busy")} style={{ width: 60, height: 24 }}>Busy</Button>
+          <div tabIndex={0} testId="end" style={{ width: 20, height: 20 }} />
+        </div>
+      )
+    }
+    const renderer = testRoot.renderer
+    const focused = () => renderer.getElement(renderer.getFocusedElementId())?.testId
+    testRoot.render(<Demo disabled={false} />)
+    renderer.simulateKeystrokes("tab")
+    log.push(`focus ${focused()}`)
+    renderer.simulateKeystrokes("enter")
+    renderer.nativeSimulateKeyDown(renderer.getFocusedElementId(), "enter", true)
+    // simulateKeystrokes sends no key up, so press and release by hand.
+    renderer.nativeSimulateKeyDown(renderer.getFocusedElementId(), "space")
+    log.push("space down")
+    renderer.nativeSimulateKeyUp(renderer.getFocusedElementId(), "space")
+    const box = renderer.getElementBounds(renderer.findByTestId("save").id)
+    log.push("click")
+    renderer.nativeSimulateClick(box.x + 4, box.y + 4)
+    renderer.simulateKeystrokes("tab")
+    log.push(`focus ${focused()}`)
+    renderer.simulateKeystrokes("enter")
+
+    testRoot.render(<Demo disabled />)
+    renderer.focusElement(renderer.findByTestId("start").id)
+    renderer.simulateKeystrokes("tab")
+    log.push(`focus ${focused()}`)
+    renderer.nativeSimulateClick(box.x + 4, box.y + 4)
+    expect(log).toMatchInlineSnapshot(`
+      [
+        "focus save",
+        "save",
+        "space down",
+        "save",
+        "click",
+        "save",
+        "focus busy",
+        "focus busy",
+      ]
+    `)
   })
 })

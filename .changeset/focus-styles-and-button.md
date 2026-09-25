@@ -1,0 +1,17 @@
+---
+'@gpuix/native': minor
+'@gpuix/react': minor
+'@gpuix/solid': minor
+---
+
+Focus is now visible by default, and there is a headless `Button`.
+
+- `focus` and `focusVisible` nested styles, like `hover` and `active`. GPUI applies them natively. `focusVisible` matches CSS `:focus-visible`: keyboard focus only
+- `outlineWidth`, `outlineColor`, `outlineOffset`: a line outside the border box that takes no layout space, so a focus ring moves nothing. It follows `borderRadius`
+- every focusable element gets a 2px `focusVisible` ring in the theme accent, like a browser. Its own `focusVisible` replaces it. `focusRingColor` (inherited) changes the colour for a subtree; `"transparent"` turns it off
+- `Button` (`@gpuix/react/button`, `@gpuix/solid/button`), shaped like Base UI: a tab stop with `role="button"` that fires `onClick` on press, Enter key down (not on repeat) and Space key up. `disabled` removes it from the Tab order, `focusableWhenDisabled` keeps it. `buttonProps()` gives the same behavior to your own parts; `Dialog.Trigger` and `Dialog.Close` now use it, so Space activates them on release
+
+```tsx
+<Button onClick={save} disabled={saving}>Save</Button>
+<div tabIndex={0} style={{ focusVisible: { outlineWidth: 2, outlineColor: '#89b4fa', outlineOffset: 2 } }} />
+```
