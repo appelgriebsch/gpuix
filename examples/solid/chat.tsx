@@ -18,7 +18,14 @@ import {
   type JSX,
 } from "solid-js"
 import {
+  Button,
   createWindowInsets,
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogPopup,
+  DialogPortal,
+  DialogTitle,
   motion,
   render,
   Select,
@@ -27,6 +34,8 @@ import {
   SelectLabel,
   SelectTrigger,
   useGpuix,
+  type DialogPopupProps,
+  type HostElement,
   type StyleDesc,
 } from "@gpuix/solid"
 import iconCompose from "../assets/icons/compose.svg" with { type: "text" }
@@ -330,8 +339,9 @@ function IconButton(props: {
   testId?: string
 }) {
   return (
-    <div
+    <Button
       testId={props.testId}
+      disabled={props.dimmed}
       style={{
         width: 26,
         height: 26,
@@ -345,18 +355,16 @@ function IconButton(props: {
         hover: props.dimmed ? undefined : { backgroundColor: C.overlay },
         active: props.dimmed ? undefined : { backgroundColor: C.overlayStrong },
       }}
-      onClick={() => {
-        if (!props.dimmed) props.onClick?.()
-      }}
+      onClick={() => props.onClick?.()}
     >
       <Icon name={props.icon} size={props.size ?? 14} color={C.tertiary} />
-    </div>
+    </Button>
   )
 }
 
 function SidebarAction(props: { icon: IconName; label: string; onClick?: () => void; testId?: string }) {
   return (
-    <div
+    <Button
       testId={props.testId}
       onClick={() => props.onClick?.()}
       style={{
@@ -386,7 +394,7 @@ function SidebarAction(props: { icon: IconName; label: string; onClick?: () => v
         <Icon name={props.icon} size={14} color={C.secondary} />
       </div>
       <text style={{ fontSize: 13, color: C.secondary }}>{props.label}</text>
-    </div>
+    </Button>
   )
 }
 
@@ -396,7 +404,7 @@ function ConversationRow(props: {
   onSelect: (id: string) => void
 }) {
   return (
-    <div
+    <Button
       testId={`thread-${props.conversation.id}`}
       style={{
         display: "flex",
@@ -441,7 +449,7 @@ function ConversationRow(props: {
         </text>
         <text style={{ fontSize: 12.5, color: C.ghost, flexShrink: 0 }}>{props.conversation.time}</text>
       </div>
-    </div>
+    </Button>
   )
 }
 
@@ -534,8 +542,9 @@ function Sidebar(props: {
                   {group.name}
                 </text>
                 <Show when={groupIndex() === 0}>
-                  <div
+                  <Button
                     testId="thread-filter"
+                    aria-label="Filter by project"
                     onClick={() => props.onFilter()}
                     style={{
                       width: 22,
@@ -550,7 +559,7 @@ function Sidebar(props: {
                     }}
                   >
                     <Icon name="listFilter" size={14} color={props.filterActive ? C.text : C.secondary} />
-                  </div>
+                  </Button>
                 </Show>
               </div>
               <For each={group.items}>
@@ -611,7 +620,8 @@ function WorkedFor(props: { duration: string }) {
   const [open, setOpen] = createSignal(false)
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-      <div
+      <Button
+        aria-expanded={open()}
         style={{
           display: "flex",
           flexDirection: "row",
@@ -631,7 +641,7 @@ function WorkedFor(props: { duration: string }) {
           <Icon name={open() ? "chevronDown" : "chevronRight"} size={11.5} color={C.tertiary} />
         </div>
         <div style={{ height: 1, flexGrow: 1, backgroundColor: C.border }} />
-      </div>
+      </Button>
       <Show when={open()}>
         <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
           Demo reasoning. No model ran. The fold is here so the chrome has something to open.
@@ -812,67 +822,63 @@ function Inspector(props: {
   )
 }
 
+// @gpuix/solid does not export its element class; take it from a ref signature.
+
+/** A modal card. Dialog owns Escape, the backdrop press, the Tab trap, and
+ *  moving focus in on open and back out on close. */
 function OverlayCard(props: {
   title: string
+  open: boolean
   onClose: () => void
   children: JSX.Element
   height?: number
+  initialFocus?: DialogPopupProps["initialFocus"]
 }) {
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#00000066",
-        pointerEvents: "none",
-      }}
-    >
-      <div
-        onMouseDownOutside={() => props.onClose()}
-        style={{
-          width: 420,
-          height: props.height,
-          maxWidth: "90%",
-          backgroundColor: C.raised,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: C.borderStrong,
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          pointerEvents: "auto",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-          <text style={{ fontSize: 14, fontWeight: 600, color: C.text, flexGrow: 1 }}>{props.title}</text>
-          <div
-            testId="overlay-close"
-            onClick={() => props.onClose()}
-            style={{
-              height: 24,
-              paddingLeft: 8,
-              paddingRight: 8,
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              hover: { backgroundColor: C.overlay },
-            }}
-          >
-            <text style={{ fontSize: 12, color: C.secondary }}>Close</text>
+    <Dialog open={props.open} onOpenChange={(next) => !next && props.onClose()}>
+      <DialogPortal>
+        <DialogBackdrop style={{ backgroundColor: "#00000066" }} />
+        <DialogPopup
+          initialFocus={props.initialFocus}
+          style={{
+            width: 420,
+            height: props.height,
+            maxWidth: "90%",
+            backgroundColor: C.raised,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: C.borderStrong,
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+            <DialogTitle style={{ flexGrow: 1 }}>
+              <text style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{props.title}</text>
+            </DialogTitle>
+            <DialogClose
+              testId="overlay-close"
+              style={{
+                height: 24,
+                paddingLeft: 8,
+                paddingRight: 8,
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                hover: { backgroundColor: C.overlay },
+              }}
+            >
+              <text style={{ fontSize: 12, color: C.secondary }}>Close</text>
+            </DialogClose>
           </div>
-        </div>
-        {props.children}
-      </div>
-    </div>
+          {props.children}
+        </DialogPopup>
+      </DialogPortal>
+    </Dialog>
   )
 }
 
@@ -1277,7 +1283,8 @@ function BranchPicker(props: { value: string; onChange: (next: string) => void }
 function ModeToggle(props: { value: "build" | "plan"; onChange: (next: "build" | "plan") => void }) {
   const plan = () => props.value === "plan"
   return (
-    <div
+    <Button
+      aria-label="Mode"
       style={{
         display: "flex",
         flexDirection: "row",
@@ -1296,7 +1303,7 @@ function ModeToggle(props: { value: "build" | "plan"; onChange: (next: "build" |
       <text style={{ fontSize: 13, lineHeight: 16, color: plan() ? C.accent : C.secondary }}>
         {plan() ? "Plan" : "Build"}
       </text>
-    </div>
+    </Button>
   )
 }
 
@@ -1474,7 +1481,7 @@ function GhostButton(props: {
 }) {
   const color = () => (props.active ? C.text : C.ghost)
   return (
-    <div
+    <Button
       testId={props.testId}
       style={{
         display: "flex",
@@ -1497,7 +1504,7 @@ function GhostButton(props: {
       <Show when={props.label}>
         <text style={{ fontSize: 12.5, color: color() }}>{props.label}</text>
       </Show>
-    </div>
+    </Button>
   )
 }
 
@@ -1573,6 +1580,7 @@ export function ChatApp(propsIn: { turnCount?: number } = {}) {
   const [collapsed, setCollapsed] = createSignal(false)
   const [inspectorOpen, setInspectorOpen] = createSignal(false)
   const [overlay, setOverlay] = createSignal<"search" | "settings" | null>(null)
+  let searchInput: HostElement | undefined
   const [query, setQuery] = createSignal("")
   const [projectOnly, setProjectOnly] = createSignal(false)
   const [draft, setDraft] = createSignal("")
@@ -1797,73 +1805,75 @@ export function ChatApp(propsIn: { turnCount?: number } = {}) {
           project={project()}
         />
       </Show>
-      <Show when={overlay() === "search"}>
-        <OverlayCard title="Search threads" height={420} onClose={() => setOverlay(null)}>
-          <input
-            testId="search-input"
-            value={query()}
-            placeholder="Filter by title"
-            autoFocus
-            theme={CHAT_THEME}
-            style={{
-              width: "100%",
-              height: 32,
-              flexShrink: 0,
-              fontSize: 13,
-              color: C.text,
-              backgroundColor: C.composer,
-              borderRadius: 8,
-              paddingLeft: 10,
-              paddingRight: 10,
-            }}
-            onChange={(event) => setQuery(event.value ?? "")}
-          />
-          <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
-            <For each={searchHits()}>
-              {(conversation) => (
-                <div
-                  testId={`search-${conversation.id}`}
-                  onClick={() => goTo(conversation.id)}
-                  style={{
-                    paddingTop: 8,
-                    paddingBottom: 8,
-                    paddingLeft: 8,
-                    paddingRight: 8,
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    hover: { backgroundColor: C.overlay },
-                  }}
-                >
-                  <text style={{ fontSize: 13, color: C.text }}>{conversation.title}</text>
-                </div>
-              )}
-            </For>
-          </div>
-        </OverlayCard>
-      </Show>
-      <Show when={overlay() === "settings"}>
-        <OverlayCard title="Settings" onClose={() => setOverlay(null)}>
-          <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
-            This is the GPUIX chat demo. Threads, drafts, and replies stay in this window.
-          </text>
-          <div
-            testId="cycle-overlay"
-            onClick={() => context?.renderer?.cycleDebugFrameOverlay?.()}
-            style={{
-              height: 32,
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              paddingLeft: 10,
-              cursor: "pointer",
-              backgroundColor: C.overlay,
-              hover: { backgroundColor: C.overlayStrong },
-            }}
-          >
-            <text style={{ fontSize: 13, color: C.text }}>Cycle frame overlay</text>
-          </div>
-        </OverlayCard>
-      </Show>
+      <OverlayCard
+        title="Search threads"
+        height={420}
+        open={overlay() === "search"}
+        onClose={() => setOverlay(null)}
+        initialFocus={() => searchInput}
+      >
+        <input
+          ref={searchInput}
+          testId="search-input"
+          value={query()}
+          placeholder="Filter by title"
+          theme={CHAT_THEME}
+          style={{
+            width: "100%",
+            height: 32,
+            flexShrink: 0,
+            fontSize: 13,
+            color: C.text,
+            backgroundColor: C.composer,
+            borderRadius: 8,
+            paddingLeft: 10,
+            paddingRight: 10,
+          }}
+          onChange={(event) => setQuery(event.value ?? "")}
+        />
+        <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
+          <For each={searchHits()}>
+            {(conversation) => (
+              <Button
+                testId={`search-${conversation.id}`}
+                onClick={() => goTo(conversation.id)}
+                style={{
+                  paddingTop: 8,
+                  paddingBottom: 8,
+                  paddingLeft: 8,
+                  paddingRight: 8,
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  hover: { backgroundColor: C.overlay },
+                }}
+              >
+                <text style={{ fontSize: 13, color: C.text }}>{conversation.title}</text>
+              </Button>
+            )}
+          </For>
+        </div>
+      </OverlayCard>
+      <OverlayCard title="Settings" open={overlay() === "settings"} onClose={() => setOverlay(null)}>
+        <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
+          This is the GPUIX chat demo. Threads, drafts, and replies stay in this window.
+        </text>
+        <Button
+          testId="cycle-overlay"
+          onClick={() => context?.renderer?.cycleDebugFrameOverlay?.()}
+          style={{
+            height: 32,
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            paddingLeft: 10,
+            cursor: "pointer",
+            backgroundColor: C.overlay,
+            hover: { backgroundColor: C.overlayStrong },
+          }}
+        >
+          <text style={{ fontSize: 13, color: C.text }}>Cycle frame overlay</text>
+        </Button>
+      </OverlayCard>
     </div>
   )
 }

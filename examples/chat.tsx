@@ -13,6 +13,13 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyMacCpuThrottleFromEnv,
+  Button,
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogPopup,
+  DialogPortal,
+  DialogTitle,
   motion,
   render,
   Select,
@@ -397,8 +404,9 @@ function IconButton({
   testId?: string
 }) {
   return (
-    <div
+    <Button
       testId={testId}
+      disabled={dimmed}
       style={{
         width: 26,
         height: 26,
@@ -412,10 +420,10 @@ function IconButton({
         hover: dimmed ? undefined : { backgroundColor: C.overlay },
         active: dimmed ? undefined : { backgroundColor: C.overlayStrong },
       }}
-      onClick={dimmed ? undefined : onClick}
+      onClick={onClick}
     >
       <Icon name={icon} size={size} color={C.tertiary} />
-    </div>
+    </Button>
   )
 }
 
@@ -431,7 +439,7 @@ function SidebarAction({
   testId?: string
 }) {
   return (
-    <div
+    <Button
       testId={testId}
       onClick={onClick}
       style={{
@@ -461,7 +469,7 @@ function SidebarAction({
         <Icon name={icon} size={14} color={C.secondary} />
       </div>
       <text style={{ fontSize: 13, color: C.secondary }}>{label}</text>
-    </div>
+    </Button>
   )
 }
 
@@ -475,7 +483,7 @@ function ConversationRow({
   onSelect: (id: string) => void
 }) {
   return (
-    <div
+    <Button
       testId={`thread-${conversation.id}`}
       style={{
         display: 'flex',
@@ -520,7 +528,7 @@ function ConversationRow({
         </text>
         <text style={{ fontSize: 12.5, color: C.ghost, flexShrink: 0 }}>{conversation.time}</text>
       </div>
-    </div>
+    </Button>
   )
 }
 
@@ -655,8 +663,9 @@ function Sidebar({
                 {group.name}
               </text>
               {groupIndex === 0 && (
-                <div
+                <Button
                   testId="thread-filter"
+                  aria-label="Filter by project"
                   onClick={onFilter}
                   style={{
                     width: 22,
@@ -671,7 +680,7 @@ function Sidebar({
                   }}
                 >
                   <Icon name="listFilter" size={14} color={filterActive ? C.text : C.secondary} />
-                </div>
+                </Button>
               )}
             </div>
             {group.items.map((conversation) => (
@@ -735,7 +744,8 @@ function WorkedFor({ duration }: { duration: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      <div
+      <Button
+        aria-expanded={open}
         style={{
           display: 'flex',
           flexDirection: 'row',
@@ -763,7 +773,7 @@ function WorkedFor({ duration }: { duration: string }) {
           <Icon name={open ? 'chevronDown' : 'chevronRight'} size={11.5} color={C.tertiary} />
         </div>
         <div style={{ height: 1, flexGrow: 1, backgroundColor: C.border }} />
-      </div>
+      </Button>
       {open && (
         <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
           Demo reasoning. No model ran. The fold is here so the chrome has something to open.
@@ -963,72 +973,68 @@ function Inspector({
   )
 }
 
+/** A modal card. Dialog owns Escape, the backdrop press, the Tab trap, and
+ *  moving focus in on open and back out on close. */
 function OverlayCard({
   title,
+  open,
   onClose,
   children,
   height,
+  initialFocus,
 }: {
   title: string
+  open: boolean
   onClose: () => void
   children: React.ReactNode
   height?: number
+  initialFocus?: React.RefObject<PublicInstance | null>
 }) {
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#00000066',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        onMouseDownOutside={onClose}
-        style={{
-          width: 420,
-          height,
-          maxWidth: '90%',
-          backgroundColor: C.raised,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: C.borderStrong,
-          padding: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          pointerEvents: 'auto',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <text style={{ fontSize: 14, fontWeight: 600, color: C.text, flexGrow: 1 }}>{title}</text>
-          <div
-            testId="overlay-close"
-            onClick={onClose}
-            style={{
-              height: 24,
-              paddingLeft: 8,
-              paddingRight: 8,
-              borderRadius: 6,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              hover: { backgroundColor: C.overlay },
-            }}
-          >
-            <text style={{ fontSize: 12, color: C.secondary }}>Close</text>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogPortal>
+        <DialogBackdrop style={{ backgroundColor: '#00000066' }} />
+        <DialogPopup
+          initialFocus={initialFocus}
+          style={{
+            width: 420,
+            height,
+            maxWidth: '90%',
+            backgroundColor: C.raised,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: C.borderStrong,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+            <DialogTitle style={{ flexGrow: 1 }}>
+              <text style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{title}</text>
+            </DialogTitle>
+            <DialogClose
+              testId="overlay-close"
+              style={{
+                height: 24,
+                paddingLeft: 8,
+                paddingRight: 8,
+                borderRadius: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                hover: { backgroundColor: C.overlay },
+              }}
+            >
+              <text style={{ fontSize: 12, color: C.secondary }}>Close</text>
+            </DialogClose>
           </div>
-        </div>
-        {children}
-      </div>
-    </div>
+          {children}
+        </DialogPopup>
+      </DialogPortal>
+    </Dialog>
   )
 }
 
@@ -1528,7 +1534,8 @@ function ModeToggle({
 }) {
   const plan = value === 'plan'
   return (
-    <div
+    <Button
+      aria-label="Mode"
       style={{
         display: 'flex',
         flexDirection: 'row',
@@ -1547,7 +1554,7 @@ function ModeToggle({
       <text style={{ fontSize: 13, lineHeight: 16, color: plan ? C.accent : C.secondary }}>
         {plan ? 'Plan' : 'Build'}
       </text>
-    </div>
+    </Button>
   )
 }
 
@@ -1756,7 +1763,7 @@ function GhostButton({
 }) {
   const color = active ? C.text : C.ghost
   return (
-    <div
+    <Button
       testId={testId}
       style={{
         display: 'flex',
@@ -1777,7 +1784,7 @@ function GhostButton({
     >
       <Icon name={icon} size={16} color={color} />
       {label && <text style={{ fontSize: 12.5, color }}>{label}</text>}
-    </div>
+    </Button>
   )
 }
 
@@ -2151,6 +2158,7 @@ export function ChatApp({
   const [collapsed, setCollapsed] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const [overlay, setOverlay] = useState<'search' | 'settings' | null>(null)
+  const searchInputRef = useRef<PublicInstance | null>(null)
   const [query, setQuery] = useState('')
   const [projectOnly, setProjectOnly] = useState(false)
   const [draft, setDraft] = useState('')
@@ -2378,72 +2386,74 @@ export function ChatApp({
           project={project}
         />
       )}
-      {overlay === 'search' && (
-        <OverlayCard title="Search threads" height={420} onClose={() => setOverlay(null)}>
-          <input
-            testId="search-input"
-            value={query}
-            placeholder="Filter by title"
-            autoFocus
-            theme={CHAT_THEME}
-            style={{
-              width: '100%',
-              height: 32,
-              flexShrink: 0,
-              fontSize: 13,
-              color: C.text,
-              backgroundColor: C.composer,
-              borderRadius: 8,
-              paddingLeft: 10,
-              paddingRight: 10,
-            }}
-            onChange={(event) => setQuery(event.value ?? '')}
-          />
-          <div style={{ flexGrow: 1, minHeight: 0, overflowY: 'scroll' }}>
-            {searchHits.map((conversation) => (
-              <div
-                key={conversation.id}
-                testId={`search-${conversation.id}`}
-                onClick={() => goTo(conversation.id)}
-                style={{
-                  paddingTop: 8,
-                  paddingBottom: 8,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  hover: { backgroundColor: C.overlay },
-                }}
-              >
-                <text style={{ fontSize: 13, color: C.text }}>{conversation.title}</text>
-              </div>
-            ))}
-          </div>
-        </OverlayCard>
-      )}
-      {overlay === 'settings' && (
-        <OverlayCard title="Settings" onClose={() => setOverlay(null)}>
-          <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
-            This is the GPUIX chat demo. Threads, drafts, and replies stay in this window.
-          </text>
-          <div
-            testId="cycle-overlay"
-            onClick={() => renderer?.cycleDebugFrameOverlay?.()}
-            style={{
-              height: 32,
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              paddingLeft: 10,
-              cursor: 'pointer',
-              backgroundColor: C.overlay,
-              hover: { backgroundColor: C.overlayStrong },
-            }}
-          >
-            <text style={{ fontSize: 13, color: C.text }}>Cycle frame overlay</text>
-          </div>
-        </OverlayCard>
-      )}
+      <OverlayCard
+        title="Search threads"
+        height={420}
+        open={overlay === 'search'}
+        onClose={() => setOverlay(null)}
+        initialFocus={searchInputRef}
+      >
+        <input
+          ref={searchInputRef}
+          testId="search-input"
+          value={query}
+          placeholder="Filter by title"
+          theme={CHAT_THEME}
+          style={{
+            width: '100%',
+            height: 32,
+            flexShrink: 0,
+            fontSize: 13,
+            color: C.text,
+            backgroundColor: C.composer,
+            borderRadius: 8,
+            paddingLeft: 10,
+            paddingRight: 10,
+          }}
+          onChange={(event) => setQuery(event.value ?? '')}
+        />
+        <div style={{ flexGrow: 1, minHeight: 0, overflowY: 'scroll' }}>
+          {searchHits.map((conversation) => (
+            <Button
+              key={conversation.id}
+              testId={`search-${conversation.id}`}
+              onClick={() => goTo(conversation.id)}
+              style={{
+                paddingTop: 8,
+                paddingBottom: 8,
+                paddingLeft: 8,
+                paddingRight: 8,
+                borderRadius: 8,
+                cursor: 'pointer',
+                hover: { backgroundColor: C.overlay },
+              }}
+            >
+              <text style={{ fontSize: 13, color: C.text }}>{conversation.title}</text>
+            </Button>
+          ))}
+        </div>
+      </OverlayCard>
+      <OverlayCard title="Settings" open={overlay === 'settings'} onClose={() => setOverlay(null)}>
+        <text style={{ fontSize: 13, lineHeight: 18, color: C.secondary }}>
+          This is the GPUIX chat demo. Threads, drafts, and replies stay in this window.
+        </text>
+        <Button
+          testId="cycle-overlay"
+          onClick={() => renderer?.cycleDebugFrameOverlay?.()}
+          style={{
+            height: 32,
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: 10,
+            cursor: 'pointer',
+            backgroundColor: C.overlay,
+            hover: { backgroundColor: C.overlayStrong },
+          }}
+        >
+          <text style={{ fontSize: 13, color: C.text }}>Cycle frame overlay</text>
+        </Button>
+      </OverlayCard>
     </div>
   )
 }

@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useRef, useState } from 'react'
-import { motion, render } from '@gpuix/react'
+import { Button, motion, render } from '@gpuix/react'
 
 import iconCheck from './assets/icons/check.svg' with { type: 'text' }
 import iconCircleCheck from './assets/icons/circle-check.svg' with { type: 'text' }
@@ -126,7 +126,7 @@ function IconButton({
   color?: string
 }) {
   return (
-    <div
+    <Button
       testId={testId}
       onClick={onClick}
       style={{
@@ -143,7 +143,7 @@ function IconButton({
       }}
     >
       <Icon name={icon} color={color} />
-    </div>
+    </Button>
   )
 }
 
@@ -161,7 +161,7 @@ function SidebarRow({
   onClick?: () => void
 }) {
   return (
-    <div
+    <Button
       testId={`view-${label.toLowerCase()}`}
       onClick={onClick}
       style={{
@@ -185,7 +185,7 @@ function SidebarRow({
       {count ? (
         <text style={{ fontSize: 12, fontFamily: FONT, color: C.ghost }}>{String(count)}</text>
       ) : null}
-    </div>
+    </Button>
   )
 }
 
@@ -199,8 +199,9 @@ function Checkbox({
   testId?: string
 }) {
   return (
-    <div
+    <Button
       testId={testId}
+      aria-label={done ? 'Mark as not done' : 'Mark as done'}
       onClick={onToggle}
       style={{
         width: 19,
@@ -218,7 +219,7 @@ function Checkbox({
       }}
     >
       {done ? <Icon name="check" size={11} color={C.onAccent} /> : null}
-    </div>
+    </Button>
   )
 }
 
@@ -322,8 +323,9 @@ function Composer({ onAdd }: { onAdd: (title: string) => void }) {
         theme={{ caret: C.accent }}
         style={{ flexGrow: 1, fontSize: 14, fontFamily: FONT, color: C.text }}
       />
-      <div
+      <Button
         testId="add"
+        disabled={!draft.trim()}
         onClick={submit}
         style={{
           height: 30,
@@ -339,7 +341,7 @@ function Composer({ onAdd }: { onAdd: (title: string) => void }) {
         }}
       >
         <text style={{ fontSize: 13, fontFamily: FONT, color: C.onAccent }}>Add</text>
-      </div>
+      </Button>
     </div>
   )
 }

@@ -339,7 +339,7 @@ describeNative('chat example', () => {
     }
   })
 
-  it('closes search on an outside press and focuses the search field', async () => {
+  it('closes search on an outside press or Escape and moves focus in and back', async () => {
     const { render, renderer } = createTestRoot()
     render(<ChatApp />)
 
@@ -351,6 +351,13 @@ describeNative('chat example', () => {
 
       renderer.nativeSimulateClick(900, 40)
       expect(renderer.getPaintedText()).not.toContain('Search threads')
+
+      // Keyboard: Escape closes it and focus returns to the button that opened it.
+      await app.getByTestId('search').click()
+      expect(renderer.getPaintedText()).toContain('Search threads')
+      renderer.simulateKeystrokes('escape')
+      expect(renderer.getPaintedText()).not.toContain('Search threads')
+      expect(renderer.getFocusedElementId()).toBe(renderer.findByTestId('search')?.id)
     } finally {
       await app.close()
     }

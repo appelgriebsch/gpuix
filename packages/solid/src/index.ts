@@ -12,6 +12,7 @@ export {
   use,
 } from "./universal.js"
 export { createRoot, GpuixContext, useGpuix, useGpuixRequired } from "./root.js"
+export type { HostElement } from "./host.js"
 export { createRenderer, render, resetRender } from "./renderer.js"
 export {
   createSelectedText,

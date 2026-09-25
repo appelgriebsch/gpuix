@@ -3184,7 +3184,9 @@ They need a **focusable** element: `tabIndex`, a key or focus listener,
 
 **Default ring.** Every focusable element gets a 2px `focusVisible` ring in the
 theme accent, like a browser. A press with the mouse shows no ring, Tab does.
-The element's own `focusVisible` replaces it. Change the colour for a subtree
+The element's own `focusVisible` replaces it. `Select.Content` and
+`Dialog.Popup` pass `focusVisible: {}`: they take focus only to receive keys,
+so they draw no ring of their own. Change the colour for a subtree
 with `focusRingColor`, or turn it off with `"transparent"`:
 
 ```tsx
