@@ -606,6 +606,9 @@ export interface AnchoredProps extends HostProps {
   deferred?: boolean
   priority?: number
   occlude?: boolean
+  /** `"window"` covers the whole viewport and tracks resizes natively. Ignores
+   *  position, side, align, anchor, offset and fit. */
+  fill?: "window"
 }
 
 export type MutationHost = Pick<GpuixRenderer, "applyBatch">
