@@ -2229,7 +2229,7 @@ import { Button } from '@gpuix/react/button'
 
 | Behavior | Detail |
 |---|---|
-| Tab stop | `tabIndex` 0, `role="button"`, dims while keyboard-focused |
+| Tab stop | `tabIndex` 0, `role="button"` |
 | `onClick` | Press, **Enter** on key down (not on repeat), **Space** on key up |
 | `disabled` | No `onClick`, leaves the Tab order |
 | `focusableWhenDisabled` | Stays in the Tab order while disabled, for a busy "Saving…" button |
@@ -3181,16 +3181,21 @@ A mouse press never shows it, on text fields too. There is no separate
 It needs a **focusable** element: `tabIndex`, a key or focus listener,
 `<input>`, `<textarea>`, or a primitive such as `Button`.
 
-**Default.** Without `focusVisible`, GPUIX draws no ring:
+**Default: everything else dims.** GPUIX draws no ring. While a control
+(`Button`, a `tabIndex` div) has keyboard focus, every **other** focusable
+element renders at 40% of its opacity. The focused one stays as it is, and you
+see at a glance everything Tab can reach.
 
-| Element | Keyboard-focused look |
-|---|---|
-| `Button`, `tabIndex` div | its opacity drops to 50% |
-| `<input>`, `<textarea>` | nothing; the caret already shows focus |
+```
+Tab  ► [ Save ]  (dim New)  (dim Search)  (dim input)
+```
 
-Any `focusVisible` replaces the default, and `focusVisible: {}` turns it off.
-`Select.Content` and `Dialog.Popup` pass `{}`: they take focus only to receive
-keys.
+- A mouse press or a mouse move ends it, like `:focus-visible`
+- A focused `<input>` or `<textarea>` dims nothing: typing is keyboard input
+  too, and the caret already shows focus
+- The focused element's ancestors never dim, because opacity covers the subtree
+- An element with its own `focusVisible` never dims; `focusVisible: {}` opts it
+  out. `Select.Content` and `Dialog.Popup` pass `{}`
 
 **Outline, not border.** `outlineWidth`, `outlineColor` and `outlineOffset` draw
 a line outside the border box, like CSS `outline`. It takes **no layout space**,

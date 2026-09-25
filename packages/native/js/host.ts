@@ -216,8 +216,9 @@ export interface StyleDesc {
   hover?: StateStyleDesc
   active?: StateStyleDesc
   /** While focused after keyboard input (Tab), like CSS `:focus-visible`.
-   *  A mouse press never shows it. Needs a focusable element. Replaces the
-   *  default: controls dim to 50% opacity, text fields draw nothing. */
+   *  A mouse press never shows it. Needs a focusable element. Setting it
+   *  (even `{}`) opts the element out of the default, which dims every other
+   *  focusable element while a control has keyboard focus. */
   focusVisible?: StateStyleDesc
 }
 

@@ -3915,6 +3915,7 @@ impl GpuixView {
                 .map(|(context, _)| context);
         }
 
+        let keyboard_focus = self.keyboard_focus_path(&tree, window, cx);
         let mut build_ctx = BuildCtx {
             tree: &tree,
             event_callback: &callback,
@@ -3928,6 +3929,7 @@ impl GpuixView {
             inherited,
             highlights: &mut self.highlights,
             highlight_events: &mut highlight_events,
+            keyboard_focus,
         };
         let child = build_element(expected_child_id, &mut build_ctx, window, cx);
         emit_highlight_events(&callback, &highlight_events);
@@ -4057,6 +4059,8 @@ pub(crate) struct BuildCtx<'a> {
     /// would re-enter the build and emit again. They are flushed once the root
     /// build has returned.
     highlight_events: &'a mut Vec<(u64, usize)>,
+    /// See `GpuixView::keyboard_focus_path`.
+    pub keyboard_focus: Option<Arc<[u64]>>,
 }
 
 /// Style properties that cascade into descendants.
@@ -4078,40 +4082,35 @@ pub(crate) struct Inherited {
     pub highlight: Option<Arc<crate::text::HighlightContext>>,
 }
 
-/// Opacity multiplier for a keyboard-focused control with no `focusVisible`.
-/// Paint only, so it moves nothing.
-const FOCUS_VISIBLE_DIM: f32 = 0.5;
+/// Opacity multiplier for every other focusable element while a control has
+/// keyboard focus. Paint only, so it moves nothing.
+const KEYBOARD_FOCUS_DIM: f32 = 0.4;
 
-/// What a focused element looks like after keyboard input
-/// (`window.last_input_was_keyboard()`), like CSS `:focus-visible`.
-#[derive(Clone, Copy)]
-pub(crate) enum FocusVisibleDefault {
-    /// Controls dim, so Tab shows where focus is without a ring.
-    Dim,
-    /// Text fields already show a caret, so nothing else is drawn.
-    None,
-}
-
-/// The element's own `focusVisible` style, or `default` when it declares
-/// none. Call it right after `track_focus`: gpui applies focus refinements
-/// only to an element that tracks a focus handle.
-pub(crate) fn apply_focus_visible<E: gpui::InteractiveElement>(
+/// Keyboard focus look for a focusable element, applied right after
+/// `track_focus` (gpui applies focus refinements only to a tracked element).
+///
+/// With its own `focusVisible`, that style applies while it is focused after
+/// keyboard input, like CSS `:focus-visible`. Without one, nothing marks the
+/// focused element; instead every *other* focusable element dims while a
+/// control has keyboard focus, which also shows at a glance where Tab can go.
+pub(crate) fn apply_focus_visible<E: gpui::InteractiveElement + gpui::Styled>(
     el: E,
+    id: u64,
     style: Option<&StyleDesc>,
-    default: FocusVisibleDefault,
+    keyboard_focus: Option<&[u64]>,
 ) -> E {
     // gpui runs the refinement eagerly, so borrowing the style is fine.
     if let Some(declared) = style.and_then(|style| style.focus_visible.as_deref()) {
         return el.focus_visible(|refinement| apply_styles(refinement, declared));
     }
-    match default {
-        FocusVisibleDefault::Dim => {
+    match keyboard_focus {
+        // Opacity applies to the subtree, so the focused element's own
+        // focusable ancestors must stay at full opacity too.
+        Some(path) if !path.contains(&id) => {
             let base = style.and_then(|style| style.opacity).unwrap_or(1.0) as f32;
-            el.focus_visible(move |refinement| {
-                gpui::Styled::opacity(refinement, base * FOCUS_VISIBLE_DIM)
-            })
+            el.opacity(base * KEYBOARD_FOCUS_DIM)
         }
-        FocusVisibleDefault::None => el,
+        _ => el,
     }
 }
 
@@ -4641,6 +4640,36 @@ impl GpuixView {
     /// Sync focus handles with the current element tree.
     /// Creates handles for new focusable elements, subscribes on_focus/on_blur,
     /// and cleans up handles for destroyed elements.
+    /// The control holding focus while the user navigates with the keyboard,
+    /// and its ancestors, or None. Text fields do not count: typing is keyboard
+    /// input too, and dimming the window while someone types is noise. A mouse
+    /// move or a focus change refreshes the window, so it is recomputed each
+    /// frame.
+    fn keyboard_focus_path(
+        &self,
+        tree: &RetainedTree,
+        window: &gpui::Window,
+        cx: &gpui::App,
+    ) -> Option<Arc<[u64]>> {
+        if !window.last_input_was_keyboard() {
+            return None;
+        }
+        let focused = window.focused(cx)?.id();
+        let (&id, _) = self
+            .focus_handles
+            .iter()
+            .find(|(_, handle)| handle.id() == focused)?;
+        let element = tree.elements.get(&id)?;
+        if matches!(element.element_type.as_str(), "input" | "textarea") {
+            return None;
+        }
+        let path: Vec<u64> = std::iter::successors(Some(id), |id| {
+            tree.elements.get(id).and_then(|element| element.parent)
+        })
+        .collect();
+        Some(path.into())
+    }
+
     fn sync_focus_handles(
         &mut self,
         tree: &RetainedTree,
@@ -4811,6 +4840,7 @@ impl gpui::Render for GpuixView {
                 .is_some_and(|element| element.custom_props.contains_key("highlight"))
         });
         let mut highlight_events = Vec::new();
+        let keyboard_focus = self.keyboard_focus_path(&tree, window, cx);
         let result = match tree.root_id {
             Some(root_id) => {
                 let mut ctx = BuildCtx {
@@ -4826,6 +4856,7 @@ impl gpui::Render for GpuixView {
                     inherited: Inherited::root(&theme),
                     highlights: &mut self.highlights,
                     highlight_events: &mut highlight_events,
+                    keyboard_focus,
                 };
                 build_element(root_id, &mut ctx, window, cx)
             }
@@ -4992,6 +5023,7 @@ pub(crate) fn build_element(
                 events: &element.events,
                 event_callback: ctx.event_callback,
                 focus_handle: ctx.focus_handles.get(&id),
+                keyboard_focus: ctx.keyboard_focus.clone(),
                 style,
                 children: custom_children,
                 selection: ctx.selection.clone(),
@@ -5302,7 +5334,7 @@ pub(crate) fn build_host_container(
 
     if let Some(handle) = ctx.focus_handles.get(&element.id) {
         el = el.track_focus(handle);
-        el = apply_focus_visible(el, style, FocusVisibleDefault::Dim);
+        el = apply_focus_visible(el, element.id, style, ctx.keyboard_focus.as_deref());
     }
     if let Some(tab_index) = element
         .custom_props

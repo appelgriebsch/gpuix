@@ -1770,7 +1770,7 @@ describeNative("motion", () => {
 describeNative("focus styles", () => {
   // One renderer per scene, so each capture is the frame after the input
   // that decided focus-visible (a keyboard Tab or a mouse press).
-  function scene({ focusVisible, field }: { focusVisible?: object; field?: boolean } = {}) {
+  function scene({ focusVisible, otherFocusVisible, field }: { focusVisible?: object; otherFocusVisible?: object; field?: boolean } = {}) {
     const root = createTestRoot({ width: 240, height: 120 })
     const targetStyle = { width: 80, height: 40, borderRadius: 8, backgroundColor: "#303030", focusVisible }
     root.render(
@@ -1779,6 +1779,7 @@ describeNative("focus styles", () => {
         {field
           ? <input testId="target" style={targetStyle} />
           : <div tabIndex={0} testId="target" style={targetStyle} />}
+        <div tabIndex={0} testId="other" style={{ width: 40, height: 40, backgroundColor: "#505050", focusVisible: otherFocusVisible }} />
       </div>
     )
     return root.renderer
@@ -1803,25 +1804,22 @@ describeNative("focus styles", () => {
     return { png: shot(renderer, name), bounds: target(renderer), focused }
   }
 
-  it("dims a keyboard-focused control and leaves text fields alone", () => {
+  it("dims every other focusable element while a control has keyboard focus", () => {
     const idle = run("idle", "none")
     const keyboard = run("keyboard", "tab")
     const mouse = run("mouse", "click")
-    const off = run("off", "tab", { focusVisible: {} })
-    const custom = run("custom", "tab", { focusVisible: { backgroundColor: "#2563eb" } })
-    // A focused field paints only its caret, from Tab or from a press.
+    // `focusVisible` on an element opts it out of the dim.
+    const optedOut = run("opted-out", "tab", { otherFocusVisible: {} })
+    // Typing is keyboard input too, so a focused text field dims nothing.
     const fieldMouse = run("field-mouse", "click", { field: true })
     const fieldKeyboard = run("field-keyboard", "tab", { field: true })
 
-    expect([keyboard.focused, mouse.focused, off.focused, fieldKeyboard.focused])
-      .toEqual(["target", "target", "target", "target"])
+    expect([keyboard.focused, mouse.focused, fieldKeyboard.focused])
+      .toEqual(["target", "target", "target"])
     expect(keyboard.bounds).toEqual(idle.bounds)
     expect(mouse.png.equals(idle.png)).toBe(true)
-    expect(off.png.equals(idle.png)).toBe(true)
+    expect(optedOut.png.equals(idle.png)).toBe(true)
     expect(fieldKeyboard.png.equals(fieldMouse.png)).toBe(true)
-    if (!isCI) {
-      expect(keyboard.png.equals(idle.png)).toBe(false)
-      expect(custom.png.equals(keyboard.png)).toBe(false)
-    }
+    if (!isCI) expect(keyboard.png.equals(idle.png)).toBe(false)
   })
 })

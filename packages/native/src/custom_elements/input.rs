@@ -454,8 +454,9 @@ impl CustomElement for TextEditorElement {
         }
         editor = crate::renderer::apply_focus_visible(
             editor,
+            ctx.id,
             ctx.style,
-            crate::renderer::FocusVisibleDefault::None,
+            ctx.keyboard_focus.as_deref(),
         );
         if ctx
             .style
