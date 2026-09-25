@@ -4080,7 +4080,7 @@ pub(crate) struct Inherited {
 
 /// Opacity multiplier for a keyboard-focused control with no `focusVisible`.
 /// Paint only, so it moves nothing.
-const FOCUS_VISIBLE_DIM: f32 = 0.7;
+const FOCUS_VISIBLE_DIM: f32 = 0.5;
 
 /// What a focused element looks like after keyboard input
 /// (`window.last_input_was_keyboard()`), like CSS `:focus-visible`.

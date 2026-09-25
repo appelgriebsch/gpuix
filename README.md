@@ -3185,7 +3185,7 @@ It needs a **focusable** element: `tabIndex`, a key or focus listener,
 
 | Element | Keyboard-focused look |
 |---|---|
-| `Button`, `tabIndex` div | its opacity drops to 70% |
+| `Button`, `tabIndex` div | its opacity drops to 50% |
 | `<input>`, `<textarea>` | nothing; the caret already shows focus |
 
 Any `focusVisible` replaces the default, and `focusVisible: {}` turns it off.
