@@ -4076,39 +4076,42 @@ pub(crate) struct Inherited {
     /// render returns, and on Windows and Linux the Node thread can edit text
     /// in between, so a stale range would paint over the wrong glyphs.
     pub highlight: Option<Arc<crate::text::HighlightContext>>,
-    /// Default `:focus-visible` ring for focusable elements. `None` when an
-    /// ancestor set `focusRingColor: "transparent"`.
-    pub focus_ring: Option<gpui::Outline>,
 }
 
-/// Default ring geometry. Paint only: an outline takes no layout space.
-const FOCUS_RING_WIDTH: f32 = 2.0;
-const FOCUS_RING_OFFSET: f32 = 1.0;
+/// Opacity multiplier for a keyboard-focused control with no `focusVisible`.
+/// Paint only, so it moves nothing.
+const FOCUS_VISIBLE_DIM: f32 = 0.7;
 
-fn focus_ring(color: gpui::Hsla) -> Option<gpui::Outline> {
-    (!color.is_transparent()).then(|| gpui::Outline {
-        width: gpui::px(FOCUS_RING_WIDTH),
-        color,
-        offset: gpui::px(FOCUS_RING_OFFSET),
-    })
+/// What a focused element looks like after keyboard input
+/// (`window.last_input_was_keyboard()`), like CSS `:focus-visible`.
+#[derive(Clone, Copy)]
+pub(crate) enum FocusVisibleDefault {
+    /// Controls dim, so Tab shows where focus is without a ring.
+    Dim,
+    /// Text fields already show a caret, so nothing else is drawn.
+    None,
 }
 
-/// The element's `focusVisible` style, or the inherited default ring when it
-/// declares none. Keyboard focus only (`window.last_input_was_keyboard()`),
-/// for text fields too: a browser also rings a clicked `<input>`, but a ring
-/// around a field the user just clicked is noise. Call it right after
-/// `track_focus`: gpui applies focus refinements only to a tracked element.
+/// The element's own `focusVisible` style, or `default` when it declares
+/// none. Call it right after `track_focus`: gpui applies focus refinements
+/// only to an element that tracks a focus handle.
 pub(crate) fn apply_focus_visible<E: gpui::InteractiveElement>(
     el: E,
     style: Option<&StyleDesc>,
-    ring: Option<gpui::Outline>,
+    default: FocusVisibleDefault,
 ) -> E {
-    let declared = style.and_then(|style| style.focus_visible.as_deref());
-    match (declared, ring) {
-        // gpui runs the refinement eagerly, so borrowing the style is fine.
-        (Some(declared), _) => el.focus_visible(|refinement| apply_styles(refinement, declared)),
-        (None, Some(ring)) => el.focus_visible(|refinement| gpui::Styled::outline(refinement, ring)),
-        (None, None) => el,
+    // gpui runs the refinement eagerly, so borrowing the style is fine.
+    if let Some(declared) = style.and_then(|style| style.focus_visible.as_deref()) {
+        return el.focus_visible(|refinement| apply_styles(refinement, declared));
+    }
+    match default {
+        FocusVisibleDefault::Dim => {
+            let base = style.and_then(|style| style.opacity).unwrap_or(1.0) as f32;
+            el.focus_visible(move |refinement| {
+                gpui::Styled::opacity(refinement, base * FOCUS_VISIBLE_DIM)
+            })
+        }
+        FocusVisibleDefault::None => el,
     }
 }
 
@@ -4120,7 +4123,6 @@ impl Inherited {
             selectable: true,
             selection_wash: wash,
             highlight: None,
-            focus_ring: focus_ring(theme.accent),
         }
     }
 
@@ -4138,13 +4140,6 @@ impl Inherited {
             .and_then(crate::color::parse_color_rgba)
         {
             self.selection_wash = color.into();
-        }
-        if let Some(color) = style
-            .focus_ring_color
-            .as_deref()
-            .and_then(crate::color::parse_color_rgba)
-        {
-            self.focus_ring = focus_ring(color.into());
         }
         self
     }
@@ -5002,7 +4997,6 @@ pub(crate) fn build_element(
                 selection: ctx.selection.clone(),
                 selectable: inherited.selectable,
                 selection_wash: inherited.selection_wash,
-                focus_ring: inherited.focus_ring,
                 highlight_set: inherited.highlight.clone(),
                 props: &element.custom_props,
             };
@@ -5308,7 +5302,7 @@ pub(crate) fn build_host_container(
 
     if let Some(handle) = ctx.focus_handles.get(&element.id) {
         el = el.track_focus(handle);
-        el = apply_focus_visible(el, style, ctx.inherited.focus_ring);
+        el = apply_focus_visible(el, style, FocusVisibleDefault::Dim);
     }
     if let Some(tab_index) = element
         .custom_props

@@ -297,7 +297,7 @@ export const SelectContent = forwardRef<PublicInstance, SelectContentProps>(
           {...props}
           ref={forwardedRef}
           // Focused only to receive keys; the highlighted item shows where
-          // the user is, so the popup draws no focus ring of its own.
+          // the user is, so the popup gets no focus look of its own.
           style={{ focusVisible: {}, ...style }}
           tabIndex={tabIndex}
           autoFocus

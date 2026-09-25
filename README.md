@@ -2229,7 +2229,7 @@ import { Button } from '@gpuix/react/button'
 
 | Behavior | Detail |
 |---|---|
-| Tab stop | `tabIndex` 0, `role="button"`, default focus ring |
+| Tab stop | `tabIndex` 0, `role="button"`, dims while keyboard-focused |
 | `onClick` | Press, **Enter** on key down (not on repeat), **Space** on key up |
 | `disabled` | No `onClick`, leaves the Tab order |
 | `focusableWhenDisabled` | Stays in the Tab order while disabled, for a busy "Saving…" button |
@@ -3127,7 +3127,7 @@ Limited relative-color forms can derive a new color from a base value:
 
 **Selection:** `userSelect` (`"text"` | `"none"`), `selectionColor` — both inherit down the tree
 
-**Focus:** `focusRingColor` inherits down the tree. See [Focus styles](#focus-styles)
+**Focus:** `focusVisible`. See [Focus styles](#focus-styles)
 
 ### Hover and active
 
@@ -3164,9 +3164,8 @@ wrapping `<div>`.
 element has focus **and the last input was the keyboard**, like CSS
 `:focus-visible`. GPUI applies it natively.
 
-A mouse press never shows it, on text fields too. A browser rings a clicked
-`<input>`; GPUIX does not, because a ring around a field the user just clicked
-is noise. Tab into the field and it shows. There is no separate `focus` key.
+A mouse press never shows it, on text fields too. There is no separate
+`focus` key.
 
 ```tsx
 <div
@@ -3182,22 +3181,20 @@ is noise. Tab into the field and it shows. There is no separate `focus` key.
 It needs a **focusable** element: `tabIndex`, a key or focus listener,
 `<input>`, `<textarea>`, or a primitive such as `Button`.
 
-**Default ring.** Every focusable element gets a 2px `focusVisible` ring in the
-theme accent, like a browser, with the same rule: Tab shows it, a mouse press
-does not.
-The element's own `focusVisible` replaces it. `Select.Content` and
-`Dialog.Popup` pass `focusVisible: {}`: they take focus only to receive keys,
-so they draw no ring of their own. Change the colour for a subtree
-with `focusRingColor`, or turn it off with `"transparent"`:
+**Default.** Without `focusVisible`, GPUIX draws no ring:
 
-```tsx
-<div style={{ focusRingColor: '#f38ba8' }}>…</div>
-<div style={{ focusRingColor: 'transparent' }}>…</div>
-```
+| Element | Keyboard-focused look |
+|---|---|
+| `Button`, `tabIndex` div | its opacity drops to 70% |
+| `<input>`, `<textarea>` | nothing; the caret already shows focus |
+
+Any `focusVisible` replaces the default, and `focusVisible: {}` turns it off.
+`Select.Content` and `Dialog.Popup` pass `{}`: they take focus only to receive
+keys.
 
 **Outline, not border.** `outlineWidth`, `outlineColor` and `outlineOffset` draw
 a line outside the border box, like CSS `outline`. It takes **no layout space**,
-so a ring that appears on focus moves nothing. A negative offset draws it
+so a ring you add with `focusVisible` moves nothing. A negative offset draws it
 inside. It follows `borderRadius`. A parent with `overflow: "hidden"` clips it,
 like in a browser.
 

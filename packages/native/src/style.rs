@@ -233,16 +233,13 @@ pub struct StyleDesc {
     /// Selection wash colour for this subtree. Defaults to the theme accent at
     /// 35% opacity, the same tone Comet uses.
     pub selection_color: Option<String>,
-    /// Colour of the default keyboard focus ring for this subtree. Inherited.
-    /// Defaults to the theme accent. `"transparent"` turns the ring off.
-    pub focus_ring_color: Option<String>,
 
     // Pseudo-selector styles — applied by GPUI natively (no JS round-trip).
     // Uses Box to avoid infinite-size struct (StyleDesc contains StyleDesc).
     pub hover: Option<Box<StyleDesc>>,
     pub active: Option<Box<StyleDesc>>,
-    /// While focused after keyboard input, like CSS `:focus-visible`, but for
-    /// text fields too. Replaces the default focus ring.
+    /// While focused after keyboard input, like CSS `:focus-visible`.
+    /// Replaces the default (controls dim, text fields draw nothing).
     pub focus_visible: Option<Box<StyleDesc>>,
 }
 

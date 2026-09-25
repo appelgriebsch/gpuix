@@ -210,17 +210,14 @@ export interface StyleDesc {
   userSelect?: "text" | "none" | "auto"
   /** Selection wash colour for this subtree. Defaults to the theme accent at 35%. */
   selectionColor?: string
-  /** Colour of the default keyboard focus ring for this subtree. Inherited.
-   *  Defaults to the theme accent. `"transparent"` turns it off. */
-  focusRingColor?: string
 
   // Pseudo-selector styles — applied by GPUI natively (no JS round-trip).
   // Nesting is one level deep: a state style cannot contain another.
   hover?: StateStyleDesc
   active?: StateStyleDesc
-  /** While focused after keyboard input (Tab), like CSS `:focus-visible`,
-   *  also on `<input>` / `<textarea>`. A mouse press never shows it. Needs a
-   *  focusable element. Replaces the default focus ring. */
+  /** While focused after keyboard input (Tab), like CSS `:focus-visible`.
+   *  A mouse press never shows it. Needs a focusable element. Replaces the
+   *  default: controls dim to 70% opacity, text fields draw nothing. */
   focusVisible?: StateStyleDesc
 }
 

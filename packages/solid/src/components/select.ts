@@ -206,7 +206,7 @@ export function SelectContent(props: SelectContentProps): JSX.Element {
           return FloatingLayer({
             ...props,
             // Focused only to receive keys; the highlighted item shows where
-            // the user is, so the popup draws no focus ring of its own.
+            // the user is, so the popup gets no focus look of its own.
             get style() { return { focusVisible: {}, ...props.style } },
             autoFocus: true,
             tabIndex: props.tabIndex ?? -1,

@@ -201,7 +201,7 @@ export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
           tabIndex={tabIndex}
           // A press inside the popup must never reach the backdrop behind it.
           // The popup is focused so the first Tab enters it; it is a surface,
-          // not a control, so it draws no focus ring of its own.
+          // not a control, so it gets no focus look of its own.
           style={{ pointerEvents: "auto", focusVisible: {}, ...style }}
           onKeyDown={(event: KeyEvent) => {
             onKeyDown?.(event)
