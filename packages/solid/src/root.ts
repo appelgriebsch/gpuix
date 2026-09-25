@@ -85,10 +85,12 @@ export function createRoot(
       onWindowKeyDown: rootHandlers.onKeyDown,
       onWindowKeyUp: rootHandlers.onKeyUp,
       onSelectionChange,
+      tabNavigation: rootHandlers.tabNavigation,
       onEvent: rootHandlers.onEvent,
     })
     renderer.setWindowKeyEvents?.(
-      Boolean(rootHandlers.onKeyDown),
+      // Always on: the Tab and Escape defaults run on the window event.
+      true,
       Boolean(rootHandlers.onKeyUp),
       binding.windowKeyEventId
     )

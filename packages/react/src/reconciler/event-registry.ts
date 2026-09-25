@@ -24,6 +24,7 @@ export function attachRoot(renderer: NativeRenderer, container: Container): void
     onWindowKeyDown: container.windowKeyEventHandlers.onKeyDown,
     onWindowKeyUp: container.windowKeyEventHandlers.onKeyUp,
     onSelectionChange: container.windowKeyEventHandlers.onSelectionChange,
+    tabNavigation: container.windowKeyEventHandlers.tabNavigation,
     onEvent: container.onEvent,
   })
   container.windowKeyEventId = binding.windowKeyEventId

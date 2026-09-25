@@ -290,6 +290,13 @@ export function isHostText(node: HostNode | HostParent): node is HostText {
   return node.kind === "text"
 }
 
+/** Structural, not `instanceof`: a JSX file compiled against the published
+ *  package and a component from source build nodes from two class copies. */
+export function isHostElement(value: unknown): value is HostElement {
+  return typeof value === "object" && value !== null &&
+    (value as { kind?: unknown }).kind === "element"
+}
+
 function isEventHandler(
   value: HostPropertyValue
 ): value is (event: EventPayload) => void {

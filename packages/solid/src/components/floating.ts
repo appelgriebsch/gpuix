@@ -1,7 +1,10 @@
 import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps, StyleDesc } from "@gpuix/native/host"
-import { HostElement } from "../host.js"
+import { pushDismissLayer } from "@gpuix/native/host"
+import type { HostProps, KeyEvent, StyleDesc } from "@gpuix/native/host"
+import { onCleanup } from "solid-js"
+import { useGpuixRequired } from "../root.js"
+import { isHostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { spread } from "../universal.js"
 
@@ -38,31 +41,78 @@ export function floatingRootStyle(style?: StyleDesc): StyleDesc {
   return { display: "flex", position: "relative", alignItems: "start", ...style }
 }
 
-export function composeHandlers(
-  first?: (event: EventPayload) => void,
-  second?: (event: EventPayload) => void
+/**
+ * Put an open overlay on the window's layer stack until the calling owner is
+ * disposed. Call it inside the branch that exists only while the overlay is
+ * open. Escape closes only the most recently opened layer.
+ */
+export function useDismissLayer(onEscapeKeyDown: (event: KeyEvent) => void): void {
+  onCleanup(pushDismissLayer(useGpuixRequired(), { onEscapeKeyDown }))
+}
+
+export function composeHandlers<Event extends EventPayload>(
+  first?: (event: Event) => void,
+  second?: (event: Event) => void
 ) {
   if (!first) return second
   if (!second) return first
-  return (event: EventPayload) => {
+  return (event: Event) => {
     first(event)
     second(event)
   }
 }
 
+/**
+ * Render `props` on a `div`, or spread them onto the single `asChild` element.
+ *
+ * `defaultTabIndex` makes the part a tab stop, like the `<button>` Base UI
+ * renders. An explicit `tabIndex` on the part, then on the child, wins. The
+ * child's own handlers run before the part's, like React `asChild`.
+ */
 export function renderSlot(args: {
   asChild?: boolean
   children?: JSX.Element
   props: Record<string, unknown>
+  defaultTabIndex?: number
 }): JSX.Element {
-  if (!args.asChild) {
-    return jsx("div", { ...args.props, get children() { return args.children } })
-  }
-  const child = args.children as unknown
-  if (!(child instanceof HostElement)) {
+  // Descriptors, not a spread, so reactive getters such as `style` stay live.
+  const descriptors = Object.getOwnPropertyDescriptors(args.props)
+  const tabIndex = descriptors.tabIndex
+  const child = args.asChild ? args.children : undefined
+  if (args.asChild && !isHostElement(child)) {
     throw new Error("asChild requires one GPUIX intrinsic element")
   }
-  spread(child, args.props)
+  const childTabIndex = isHostElement(child) ? child.props.get("tabIndex") : undefined
+  if (args.defaultTabIndex !== undefined || childTabIndex !== undefined) {
+    descriptors.tabIndex = {
+      enumerable: true,
+      configurable: true,
+      get: () => (tabIndex?.get ? tabIndex.get() : tabIndex?.value) ??
+        childTabIndex ?? args.defaultTabIndex,
+    }
+  }
+  if (!isHostElement(child)) {
+    descriptors.children = {
+      enumerable: true,
+      configurable: true,
+      get: () => args.children,
+    }
+    return jsx("div", Object.defineProperties({}, descriptors))
+  }
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    const own = child.props.get(key)
+    if (!key.startsWith("on") || typeof own !== "function") continue
+    const slotHandler = descriptor.value
+    if (typeof slotHandler !== "function") continue
+    descriptor.value = (event: EventPayload) => {
+      own(event)
+      slotHandler(event)
+    }
+  }
+  // The child keeps its own children. Without skipChildren, spread would
+  // insert `props.children`, which is the child itself.
+  delete descriptors.children
+  spread(child, Object.defineProperties({}, descriptors), true)
   return child as never
 }
 

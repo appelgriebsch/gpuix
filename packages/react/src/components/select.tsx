@@ -12,7 +12,7 @@ import React, {
 } from "react"
 import type { ReactElement, ReactNode } from "react"
 import type { EventPayload } from "@gpuix/native"
-import type { Props, PublicInstance } from "../types/host.js"
+import type { KeyEvent, Props, PublicInstance } from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
 import {
   FloatingLayer,
@@ -21,6 +21,7 @@ import {
   resolveStyle,
   setRefs,
   useControllableState,
+  useDismissLayer,
 } from "./floating.js"
 import type { FloatingContentProps, StateStyle } from "./floating.js"
 
@@ -44,7 +45,9 @@ interface SelectContextValue {
   triggerPressedWhileOpen: React.MutableRefObject<boolean>
   dismissedByOutsidePress: React.MutableRefObject<boolean>
   triggerRef: React.MutableRefObject<PublicInstance | null>
-  setOpen: (open: boolean) => void
+  /** `restoreFocus: false` when the user pressed elsewhere, so the press keeps
+   *  the focus it just gave. */
+  setOpen: (open: boolean, restoreFocus?: boolean) => void
   setActiveValue: (value: string | null) => void
   moveActive: (delta: number) => void
   selectValue: (value: string) => void
@@ -111,9 +114,9 @@ export function Select({
     return next
   }, [itemsProp])
 
-  const setOpen = (nextOpen: boolean) => {
+  const setOpen = (nextOpen: boolean, restoreFocus = true) => {
     setOpenState(nextOpen)
-    if (!nextOpen && triggerRef.current) {
+    if (!nextOpen && restoreFocus && triggerRef.current) {
       renderer?.focusElement?.(triggerRef.current.id)
     }
   }
@@ -222,7 +225,7 @@ export const SelectTrigger = forwardRef<PublicInstance, SelectTriggerProps>(
     }
     const triggerProps: Props = {
       ...props,
-      tabIndex: disabled ? -1 : (asChild ? props.tabIndex : (props.tabIndex ?? 0)),
+      tabIndex: disabled ? -1 : props.tabIndex,
       style: resolveStyle(style, state),
       onMouseDown: (event) => {
         onMouseDown?.(event)
@@ -242,12 +245,10 @@ export const SelectTrigger = forwardRef<PublicInstance, SelectTriggerProps>(
         }
         context.setOpen(!context.open)
       },
-      onKeyDown: (event) => {
+      onKeyDown: (event: KeyEvent) => {
         onKeyDown?.(event)
         if (disabled) return
-        if (event.key === "escape") {
-          context.setOpen(false)
-        } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+        if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
           if (!context.open) context.setOpen(true)
           else context.moveActive(1)
         } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
@@ -258,7 +259,7 @@ export const SelectTrigger = forwardRef<PublicInstance, SelectTriggerProps>(
         }
       },
     }
-    return renderSlot({ asChild, children, props: triggerProps, ref })
+    return renderSlot({ asChild, children, props: triggerProps, ref, defaultTabIndex: 0 })
   }
 )
 
@@ -275,15 +276,19 @@ export const SelectValue = forwardRef<PublicInstance, SelectValueProps>(
 )
 
 export interface SelectContentProps extends FloatingContentProps {
-  onEscapeKeyDown?: (event: EventPayload) => void
+  onEscapeKeyDown?: (event: KeyEvent) => void
 }
 
 export const SelectContent = forwardRef<PublicInstance, SelectContentProps>(
   function SelectContent(
-    { children, onMouseDownOutside, onKeyDown, onEscapeKeyDown, tabIndex = 0, ...props },
+    { children, onMouseDownOutside, onKeyDown, onEscapeKeyDown, tabIndex = -1, ...props },
     forwardedRef
   ) {
     const context = useSelectContext("SelectContent")
+    useDismissLayer(context.open, (event) => {
+      onEscapeKeyDown?.(event)
+      context.setOpen(false)
+    })
     if (!context.open) return null
     return (
       <FloatingLayer
@@ -297,13 +302,13 @@ export const SelectContent = forwardRef<PublicInstance, SelectContentProps>(
           queueMicrotask(() => {
             context.dismissedByOutsidePress.current = false
           })
-          context.setOpen(false)
+          context.setOpen(false, false)
         }}
-        onKeyDown={(event) => {
+        onKeyDown={(event: KeyEvent) => {
           onKeyDown?.(event)
-          if (event.key === "escape") {
-            onEscapeKeyDown?.(event)
-            context.setOpen(false)
+          // The popup is modal, like Base UI: Tab stays inside until it closes.
+          if (event.key === "tab") {
+            event.preventDefault()
             return
           }
           if (context.disabled) return

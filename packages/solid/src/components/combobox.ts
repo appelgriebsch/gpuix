@@ -9,7 +9,7 @@ import {
   type JSX,
 } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps, InputProps } from "@gpuix/native/host"
+import type { HostProps, InputProps, KeyEvent } from "@gpuix/native/host"
 import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { useGpuixRequired } from "../root.js"
@@ -20,6 +20,7 @@ import {
   resolveStyle,
   type FloatingContentProps,
   type StateStyle,
+  useDismissLayer,
 } from "./floating.js"
 
 export type ComboboxValue = string | string[] | null
@@ -191,9 +192,10 @@ export function ComboboxInput(props: ComboboxInputProps): JSX.Element {
       state.setInput(event.value ?? "")
       if (!disabled()) state.setOpen(true)
     },
-    onKeyDown(event: EventPayload) {
+    onKeyDown(event: KeyEvent) {
       props.onKeyDown?.(event)
-      if (event.key === "escape") state.setOpen(false)
+      // Tab keeps its default and moves focus on, so the popup must close.
+      if (event.key === "tab") state.setOpen(false)
       else if (event.key === "down") state.move(1)
       else if (event.key === "up") state.move(-1)
     },
@@ -217,12 +219,13 @@ export function ComboboxTrigger(props: ComboboxTriggerProps): JSX.Element {
     children: props.children,
     props: {
       ...props,
-      get tabIndex() { return disabled() ? -1 : (props.tabIndex ?? 0) },
+      get tabIndex() { return disabled() ? -1 : props.tabIndex },
       onClick(event: EventPayload) {
         props.onClick?.(event)
         if (!disabled()) state.setOpen(!state.open())
       },
     },
+    defaultTabIndex: 0,
   })
 }
 
@@ -249,6 +252,7 @@ export function ComboboxContent(props: FloatingContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
+      useDismissLayer(() => state.setOpen(false))
       return FloatingLayer({
         ...props,
         onMouseDownOutside(event) {

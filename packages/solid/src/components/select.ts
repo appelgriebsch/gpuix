@@ -9,7 +9,7 @@ import {
   type JSX,
 } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps } from "@gpuix/native/host"
+import type { HostProps, KeyEvent } from "@gpuix/native/host"
 import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { useGpuixRequired } from "../root.js"
@@ -20,6 +20,7 @@ import {
   resolveStyle,
   type FloatingContentProps,
   type StateStyle,
+  useDismissLayer,
 } from "./floating.js"
 
 export interface SelectItemData {
@@ -36,7 +37,9 @@ interface SelectContextValue {
   disabled: boolean
   labels: Map<string, JSX.Element>
   trigger: { current: HostElement | null }
-  setOpen(value: boolean): void
+  /** `restoreFocus: false` when the user pressed elsewhere, so the press keeps
+   *  the focus it just gave. */
+  setOpen(value: boolean, restoreFocus?: boolean): void
   setActive(value: string | null): void
   move(delta: number): void
   select(value: string): void
@@ -76,11 +79,11 @@ export function Select(props: SelectProps): JSX.Element {
     if (props.value === undefined) setInternalValue(next)
     if (previous !== next) props.onValueChange?.(next)
   }
-  const setOpen = (next: boolean) => {
+  const setOpen = (next: boolean, restoreFocus = true) => {
     const previous = open()
     if (props.open === undefined) setInternalOpen(next)
     if (previous !== next) props.onOpenChange?.(next)
-    if (!next && trigger.current) renderer.focusElement?.(trigger.current.id)
+    if (!next && restoreFocus && trigger.current) renderer.focusElement?.(trigger.current.id)
     if (next) setActive(items.find((item) => item.value === value() && !item.disabled)?.value ?? null)
   }
   const move = (delta: number) => {
@@ -149,7 +152,7 @@ export function SelectTrigger(props: SelectTriggerProps): JSX.Element {
         state.trigger.current = element
         props.ref?.(element)
       },
-      get tabIndex() { return disabled() ? -1 : (props.tabIndex ?? 0) },
+      get tabIndex() { return disabled() ? -1 : props.tabIndex },
       get style() {
         return resolveStyle(props.style, {
           open: state.open(),
@@ -161,15 +164,15 @@ export function SelectTrigger(props: SelectTriggerProps): JSX.Element {
         props.onClick?.(event)
         if (!disabled()) state.setOpen(!state.open())
       },
-      onKeyDown(event: EventPayload) {
+      onKeyDown(event: KeyEvent) {
         props.onKeyDown?.(event)
         if (disabled()) return
-        if (event.key === "escape") state.setOpen(false)
-        else if (event.key === "down") state.open() ? state.move(1) : state.setOpen(true)
+        if (event.key === "down") state.open() ? state.move(1) : state.setOpen(true)
         else if (event.key === "up") state.open() ? state.move(-1) : state.setOpen(true)
         else if (event.key === "enter" || event.key === "space") state.setOpen(!state.open())
       },
     },
+    defaultTabIndex: 0,
   })
 }
 
@@ -186,7 +189,7 @@ export function SelectValue(props: SelectValueProps): JSX.Element {
 }
 
 export interface SelectContentProps extends FloatingContentProps {
-  onEscapeKeyDown?: (event: EventPayload) => void
+  onEscapeKeyDown?: (event: KeyEvent) => void
 }
 export function SelectContent(props: SelectContentProps): JSX.Element {
   const state = context("SelectContent")
@@ -194,20 +197,23 @@ export function SelectContent(props: SelectContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
+      useDismissLayer((event) => {
+        props.onEscapeKeyDown?.(event)
+        state.setOpen(false)
+      })
       return FloatingLayer({
         ...props,
         autoFocus: true,
-        tabIndex: props.tabIndex ?? 0,
+        tabIndex: props.tabIndex ?? -1,
         onMouseDownOutside(event) {
           props.onMouseDownOutside?.(event)
-          state.setOpen(false)
+          state.setOpen(false, false)
         },
         onKeyDown(event) {
           props.onKeyDown?.(event)
-          if (event.key === "escape") {
-            props.onEscapeKeyDown?.(event)
-            state.setOpen(false)
-          } else if (event.key === "down") state.move(1)
+          // The popup is modal, like Base UI: Tab stays inside until it closes.
+          if (event.key === "tab") event.preventDefault()
+          else if (event.key === "down") state.move(1)
           else if (event.key === "up") state.move(-1)
           else if ((event.key === "enter" || event.key === "space") && state.active()) {
             state.select(state.active()!)

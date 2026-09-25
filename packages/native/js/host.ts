@@ -396,8 +396,9 @@ export interface HostProps {
   onMouseDownOutside?: (event: EventPayload) => void
 
   // ── Keyboard events (need focus: autoFocus, or a click on the element) ──
-  onKeyDown?: (event: EventPayload) => void
-  onKeyUp?: (event: EventPayload) => void
+  /** Fires on the focused element, then on ancestors that declare it. */
+  onKeyDown?: (event: KeyEvent) => void
+  onKeyUp?: (event: KeyEvent) => void
 
   // ── Focus events ───────────────────────────────────────────────
   onFocus?: (event: EventPayload) => void
@@ -668,23 +669,49 @@ export interface MutationRenderer {
 
 export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
 
-export type EventHandlerMap = Map<
-  number,
-  Map<string, (event: EventPayload) => void>
->
+/** Method syntax makes the parameter bivariant, so an `onKeyDown` typed with
+ *  `KeyEvent` can share the map. Dispatch builds the `KeyEvent` for key types. */
+export type HostEventHandler = { handle(event: EventPayload): void }["handle"]
+
+export type EventHandlerMap = Map<number, Map<string, HostEventHandler>>
+
+/**
+ * A `keyDown` / `keyUp` event. Element handlers and the window handler of one
+ * keystroke share the flags, like one DOM event bubbling to `window`.
+ */
+export interface KeyEvent extends EventPayload {
+  /** True after any handler of this keystroke called `preventDefault()`. */
+  readonly defaultPrevented: boolean
+  /** Cancel the default action, for example Tab moving focus. */
+  preventDefault(): void
+  /** Skip ancestor `onKeyDown` handlers and the window handler. The default
+   *  action still runs, like the DOM. */
+  stopPropagation(): void
+}
 
 export type WindowKeyEventHandler = (
+  event: KeyEvent,
+  renderer: NativeRenderer
+) => void
+
+export type WindowEventHandler = (
   event: EventPayload,
   renderer: NativeRenderer
 ) => void
 
 export interface WindowKeyEventHandlers {
-  /** Window-level GPUI listener. Key actions can consume an event before this runs. */
+  /** Window-level GPUI listener. Runs after element `onKeyDown` handlers.
+   *  Key actions can consume an event before this runs. */
   onKeyDown?: WindowKeyEventHandler
   /** Window-level GPUI listener. */
   onKeyUp?: WindowKeyEventHandler
   /** Window-level text selection. Fires when the selected ranges change. */
-  onSelectionChange?: WindowKeyEventHandler
+  onSelectionChange?: WindowEventHandler
+  /**
+   * Tab and Shift+Tab move focus through `tabIndex` elements. Defaults to
+   * true. Call `event.preventDefault()` in any `onKeyDown` to keep one Tab.
+   */
+  tabNavigation?: boolean
 }
 
 export interface RootEventHandlers extends WindowKeyEventHandlers {

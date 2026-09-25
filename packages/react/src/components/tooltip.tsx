@@ -15,6 +15,7 @@ import {
   floatingRootStyle,
   renderSlot,
   useControllableState,
+  useDismissLayer,
 } from "./floating.js"
 import type { FloatingContentProps } from "./floating.js"
 
@@ -176,7 +177,6 @@ export const TooltipTrigger = forwardRef<PublicInstance, TooltipTriggerProps>(
       onClick,
       onFocus,
       onBlur,
-      onKeyDown,
       ...props
     },
     ref
@@ -187,7 +187,6 @@ export const TooltipTrigger = forwardRef<PublicInstance, TooltipTriggerProps>(
       children,
       props: {
         ...props,
-        tabIndex: asChild ? props.tabIndex : (props.tabIndex ?? 0),
         onMouseEnter: (event) => {
           onMouseEnter?.(event)
           context.scheduleOpen()
@@ -212,12 +211,9 @@ export const TooltipTrigger = forwardRef<PublicInstance, TooltipTriggerProps>(
           onBlur?.(event)
           context.close()
         },
-        onKeyDown: (event) => {
-          onKeyDown?.(event)
-          if (event.key === "escape") context.close()
-        },
       },
-      ref
+      ref,
+      defaultTabIndex: 0,
     })
   }
 )
@@ -230,6 +226,7 @@ export const TooltipContent = forwardRef<PublicInstance, TooltipContentProps>(
     ref
   ) {
     const context = useTooltipContext("TooltipContent")
+    useDismissLayer(context.open, context.close)
     if (!context.open) return null
     return (
       <FloatingLayer

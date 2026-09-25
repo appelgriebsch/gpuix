@@ -9,7 +9,7 @@ import React, {
 } from "react"
 import type { ReactElement, ReactNode } from "react"
 import type { EventPayload } from "@gpuix/native"
-import type { InputProps, Props, PublicInstance } from "../types/host.js"
+import type { InputProps, KeyEvent, Props, PublicInstance } from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
 import {
   FloatingLayer,
@@ -18,6 +18,7 @@ import {
   resolveStyle,
   setRefs,
   useControllableState,
+  useDismissLayer,
 } from "./floating.js"
 import type { FloatingContentProps, StateStyle } from "./floating.js"
 
@@ -253,10 +254,11 @@ export const ComboboxInput = forwardRef<PublicInstance, ComboboxInputProps>(
           context.setInputValue(event.value ?? "")
           if (!disabled) context.setOpen(true)
         }}
-        onKeyDown={(event: EventPayload) => {
+        onKeyDown={(event: KeyEvent) => {
           onKeyDown?.(event)
           if (disabled) return
-          if (event.key === "escape") {
+          // Tab keeps its default and moves focus on, so the popup must close.
+          if (event.key === "tab") {
             context.setOpen(false)
           } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
             context.moveActive(1)
@@ -264,7 +266,7 @@ export const ComboboxInput = forwardRef<PublicInstance, ComboboxInputProps>(
             context.moveActive(-1)
           }
         }}
-        onKeyUp={(event: EventPayload) => {
+        onKeyUp={(event: KeyEvent) => {
           onKeyUp?.(event)
         }}
         onSubmit={(event: EventPayload) => {
@@ -297,7 +299,7 @@ export const ComboboxTrigger = forwardRef<PublicInstance, ComboboxTriggerProps>(
       children,
       props: {
         ...props,
-        tabIndex: disabled ? -1 : (asChild ? props.tabIndex : (props.tabIndex ?? 0)),
+        tabIndex: disabled ? -1 : props.tabIndex,
         onClick: (event) => {
           onClick?.(event)
           if (!disabled) context.setOpen(!context.open)
@@ -306,10 +308,10 @@ export const ComboboxTrigger = forwardRef<PublicInstance, ComboboxTriggerProps>(
           onKeyDown?.(event)
           if (disabled) return
           if (event.key === "down" || event.key === "up") context.setOpen(true)
-          if (event.key === "escape") context.setOpen(false)
         },
       },
-      ref
+      ref,
+      defaultTabIndex: 0,
     })
   }
 )
@@ -335,6 +337,7 @@ export const ComboboxValue = forwardRef<PublicInstance, ComboboxValueProps>(
 export const ComboboxContent = forwardRef<PublicInstance, FloatingContentProps>(
   function ComboboxContent({ children, onMouseDownOutside, ...props }, ref) {
     const context = useComboboxContext("ComboboxContent")
+    useDismissLayer(context.open, () => context.setOpen(false))
     if (!context.open) return null
     return (
       <FloatingLayer

@@ -85,7 +85,8 @@ export function createRoot(
   const { windowKeyEventId, windowSelectionEventId } = gpuixContainer
   try {
     renderer.setWindowKeyEvents?.(
-      Boolean(rootEventHandlers.onKeyDown),
+      // Always on: the Tab and Escape defaults run on the window event.
+      true,
       Boolean(rootEventHandlers.onKeyUp),
       windowKeyEventId
     )

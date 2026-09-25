@@ -94,7 +94,11 @@ pub fn bounds_tracker(id: u64, selection_start: Option<bool>) -> impl IntoElemen
             }
         },
     )
+    // Inset 0, or Taffy places an absolute child at the content box and the
+    // box, click target and selection region all shift by the padding.
     .absolute()
+    .top_0()
+    .left_0()
     .size_full()
 }
 

@@ -15,9 +15,11 @@ export {
   observeSelectedText,
   observeWindowInsets,
   observeWindowSize,
+  pushDismissLayer,
   readWindowInsets,
   readWindowSize,
 } from "@gpuix/native/host"
+export type { DismissLayer } from "@gpuix/native/host"
 export type {
   FindRangesOptions,
   TextSearch,
@@ -67,6 +69,25 @@ export type {
   ComboboxTriggerProps,
   ComboboxValueProps,
 } from "./components/combobox.js"
+export {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogDescription,
+  DialogPopup,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "./components/dialog.js"
+export { useDismissLayer } from "./components/floating.js"
+export type {
+  DialogBackdropProps,
+  DialogCloseProps,
+  DialogPopupProps,
+  DialogPortalProps,
+  DialogProps,
+  DialogTriggerProps,
+} from "./components/dialog.js"
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/tooltip.js"
 export type {
   TooltipContentProps,
@@ -108,6 +129,7 @@ export type {
   ImgInstance,
   ImgProps,
   InputProps,
+  KeyEvent,
   LinearGradientBackground,
   LinearGradientStop,
   MarkdownProps,

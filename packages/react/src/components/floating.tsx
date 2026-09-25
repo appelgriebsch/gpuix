@@ -5,11 +5,15 @@ import React, {
   forwardRef,
   isValidElement,
   useCallback,
+  useLayoutEffect,
+  useRef,
   useState,
 } from "react"
 import type { ReactElement, ReactNode, Ref } from "react"
 import type { EventPayload } from "@gpuix/native"
-import type { Props, PublicInstance, StyleDesc } from "../types/host.js"
+import { pushDismissLayer } from "@gpuix/native/host"
+import type { KeyEvent, Props, PublicInstance, StyleDesc } from "../types/host.js"
+import { useGpuix } from "../hooks/use-gpuix.js"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
@@ -119,6 +123,25 @@ export function useControllableState<Value>({
   return [currentValue, setValue]
 }
 
+/**
+ * Put an open overlay on the window's layer stack. Escape closes only the most
+ * recently opened layer, after every `onKeyDown` had the chance to prevent it.
+ */
+export function useDismissLayer(
+  open: boolean,
+  onEscapeKeyDown: (event: KeyEvent) => void
+): void {
+  const { renderer } = useGpuix()
+  const latest = useRef(onEscapeKeyDown)
+  latest.current = onEscapeKeyDown
+  useLayoutEffect(() => {
+    if (!open || !renderer) return
+    return pushDismissLayer(renderer, {
+      onEscapeKeyDown: (event) => latest.current(event),
+    })
+  }, [open, renderer])
+}
+
 export function setRefs<T>(value: T, ...refs: Array<Ref<T> | undefined>): void {
   for (const ref of refs) {
     if (typeof ref === "function") {
@@ -147,10 +170,10 @@ function getElementRef(element: ReactElement<Props>): Ref<PublicInstance> | unde
   return descriptor?.value
 }
 
-function composeHandlers(
-  first?: (event: EventPayload) => void,
-  second?: (event: EventPayload) => void
-): ((event: EventPayload) => void) | undefined {
+function composeHandlers<Event extends EventPayload>(
+  first?: (event: Event) => void,
+  second?: (event: Event) => void
+): ((event: Event) => void) | undefined {
   if (!first) return second
   if (!second) return first
   return (event) => {
@@ -159,19 +182,31 @@ function composeHandlers(
   }
 }
 
+/**
+ * Render `props` on a `div`, or merge them into the single `asChild` element.
+ *
+ * `defaultTabIndex` makes the part a tab stop, like the `<button>` Base UI
+ * renders. An explicit `tabIndex` on the part, then on the child, wins.
+ */
 export function renderSlot({
   asChild,
   children,
   props,
   ref,
+  defaultTabIndex,
 }: {
   asChild?: boolean
   children: ReactNode
   props: Props
   ref?: Ref<PublicInstance>
+  defaultTabIndex?: number
 }): ReactElement {
   if (!asChild) {
-    return <div {...props} ref={ref}>{children}</div>
+    return (
+      <div {...props} tabIndex={props.tabIndex ?? defaultTabIndex} ref={ref}>
+        {children}
+      </div>
+    )
   }
   if (!isValidElement<Props>(children)) {
     throw new Error("asChild requires exactly one React element")
@@ -201,7 +236,7 @@ export function renderSlot({
     onChange: composeHandlers(childProps.onChange, props.onChange),
     onSubmit: composeHandlers(childProps.onSubmit, props.onSubmit),
   }
-  if (props.tabIndex === undefined) merged.tabIndex = childProps.tabIndex
+  merged.tabIndex = props.tabIndex ?? childProps.tabIndex ?? defaultTabIndex
   const childRef = getElementRef(child)
   if (childRef || ref) merged.ref = mergeRefs(childRef, ref)
   return cloneElement(child, merged)

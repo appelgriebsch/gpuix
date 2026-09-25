@@ -7,6 +7,7 @@ import * as ComboboxPrimitive from "../components/combobox"
 import { FloatingLayer } from "../components/floating"
 import * as SelectPrimitive from "../components/select"
 import * as TooltipPrimitive from "../components/tooltip"
+import * as DialogPrimitive from "../components/dialog"
 import {
   Combobox,
   ComboboxContent,
@@ -980,5 +981,199 @@ describeNative("floating controls", () => {
     testRoot.renderer.focusNextWithin(panel.id)
     expect(testRoot.renderer.getFocusedElementId()).toBe(second.id)
     expect(testRoot.renderer.getFocusedElementId()).not.toBe(hidden.id)
+  })
+
+  it("moves keyboard focus through Select and Tooltip triggers like Base UI", () => {
+    const center = (testId) => {
+      const bounds = testRoot.renderer.getElementBounds(testRoot.renderer.findByTestId(testId).id)
+      return [bounds.x + bounds.width / 2, bounds.y + bounds.height / 2]
+    }
+    const focused = () => {
+      const id = testRoot.renderer.getFocusedElementId()
+      return testRoot.renderer.getElement(id)?.testId ?? id
+    }
+
+    // The input sits right of the popup, so a press on it is a real outside press.
+    testRoot.render(
+      <div style={{ display: "flex", width: 500, height: 300, padding: 12, gap: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div autoFocus tabIndex={0} testId="before" style={{ width: 80, height: 24 }} />
+          <Select items={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }]} defaultValue="a">
+            <SelectTrigger asChild>
+              <div testId="select-trigger" style={triggerStyle}><SelectValue /></div>
+            </SelectTrigger>
+            <SelectContent testId="select-content" style={contentStyle}>
+              <SelectItem value="a" style={itemStyle}>Alpha</SelectItem>
+              <SelectItem value="b" style={itemStyle}>Beta</SelectItem>
+            </SelectContent>
+          </Select>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div testId="tip-trigger" style={{ width: 80, height: 24 }}>Tip</div>
+            </TooltipTrigger>
+            <TooltipContent>Tip body</TooltipContent>
+          </Tooltip>
+        </div>
+        <input testId="outside" style={{ width: 120, height: 28 }} />
+      </div>
+    )
+
+    const steps = []
+    const step = (label) => steps.push(`${label}: focus=${focused()} text=${testRoot.renderer.getAllText().join("|")}`)
+    step("mount")
+    testRoot.renderer.simulateKeystrokes("tab")
+    step("tab")
+    testRoot.renderer.simulateKeystrokes("enter")
+    step("enter")
+    testRoot.renderer.simulateKeystrokes("tab")
+    step("tab in popup")
+    testRoot.renderer.simulateKeystrokes("escape")
+    step("escape")
+    testRoot.renderer.simulateKeystrokes("tab")
+    step("tab")
+    testRoot.renderer.simulateKeystrokes("tab")
+    step("tab")
+    testRoot.renderer.nativeSimulateClick(...center("select-trigger"))
+    step("click trigger")
+    testRoot.renderer.nativeSimulateClick(...center("outside"))
+    step("click input")
+
+    expect("\n" + steps.join("\n")).toMatchInlineSnapshot(`
+      "
+      mount: focus=before text=Alpha|Tip
+      tab: focus=select-trigger text=Alpha|Tip
+      enter: focus=select-content text=Alpha|Alpha|Beta|Tip
+      tab in popup: focus=select-content text=Alpha|Alpha|Beta|Tip
+      escape: focus=select-trigger text=Alpha|Tip
+      tab: focus=tip-trigger text=Alpha|Tip
+      tab: focus=outside text=Alpha|Tip
+      click trigger: focus=select-content text=Alpha|Alpha|Beta|Tip
+      click input: focus=outside text=Alpha|Tip"
+    `)
+  })
+
+  it("closes an open Combobox when Tab leaves its input", () => {
+    testRoot.render(
+      <div style={{ width: 400, height: 300, padding: 12, flexDirection: "column", gap: 8 }}>
+        <Combobox items={["alpha", "beta"]} defaultOpen>
+          <ComboboxInput autoFocus testId="combo" style={{ width: 160, height: 28 }} />
+          <ComboboxContent style={contentStyle}>
+            <ComboboxList>
+              {(item) => <ComboboxItem key={item} value={item}>{item}</ComboboxItem>}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+        <div tabIndex={0} testId="after" style={{ width: 80, height: 24 }} />
+      </div>
+    )
+    expect(testRoot.renderer.getAllText()).toContain("beta")
+
+    testRoot.renderer.simulateKeystrokes("tab")
+
+    const focused = testRoot.renderer.getElement(testRoot.renderer.getFocusedElementId())
+    expect({ focused: focused?.testId, text: testRoot.renderer.getAllText() }).toMatchInlineSnapshot(`
+      {
+        "focused": "after",
+        "text": [],
+      }
+    `)
+  })
+
+  it("runs a modal Dialog by keyboard: trap Tab, Escape closes the top layer first", () => {
+    const log = []
+    function Demo() {
+      const [value, setValue] = useState("a")
+      return (
+        <div style={{ display: "flex", flexDirection: "column", width: 600, height: 400, padding: 12, gap: 8 }}>
+          <div autoFocus tabIndex={0} testId="before" style={{ width: 80, height: 24 }} />
+          <DialogPrimitive.Root onOpenChange={(open) => log.push(`open=${open}`)}>
+            <DialogPrimitive.Trigger testId="open" style={{ width: 80, height: 24 }}>Open</DialogPrimitive.Trigger>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Backdrop testId="backdrop" style={{ backgroundColor: "#00000080" }} />
+              <DialogPrimitive.Popup
+                testId="popup"
+                style={{ width: 300, padding: 16, gap: 8, backgroundColor: "#1e293b" }}
+              >
+                <DialogPrimitive.Title>Settings</DialogPrimitive.Title>
+                <Select items={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }]} value={value} onValueChange={setValue}>
+                  <SelectTrigger testId="select" style={triggerStyle}><SelectValue /></SelectTrigger>
+                  <SelectContent style={contentStyle}>
+                    <SelectItem value="a" style={itemStyle}>Alpha</SelectItem>
+                    <SelectItem value="b" style={itemStyle}>Beta</SelectItem>
+                  </SelectContent>
+                </Select>
+                <DialogPrimitive.Close testId="close" style={{ width: 60, height: 24 }}>Close</DialogPrimitive.Close>
+              </DialogPrimitive.Popup>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        </div>
+      )
+    }
+    testRoot.render(<Demo />)
+    const renderer = testRoot.renderer
+    const focused = () => renderer.getElement(renderer.getFocusedElementId())?.testId
+    const step = (label) => log.push(`${label}: focus=${focused()} text=${renderer.getAllText().join("|")}`)
+    const press = (keys) => {
+      renderer.simulateKeystrokes(keys)
+      step(keys)
+    }
+
+    press("tab")
+    press("enter")
+    press("tab")
+    press("tab")
+    press("tab")
+    press("shift-tab")
+    press("shift-tab")
+    press("down")
+    press("escape")
+    press("escape")
+
+    press("enter")
+    const popup = renderer.getElementBounds(renderer.findByTestId("popup").id)
+    renderer.nativeSimulateClick(popup.x + popup.width - 4, popup.y + 4)
+    step("press popup")
+    renderer.nativeSimulateClick(4, 390)
+    step("press backdrop")
+
+    expect("\n" + log.join("\n")).toMatchInlineSnapshot(`
+      "
+      tab: focus=open text=Open
+      open=true
+      enter: focus=popup text=Open|Settings|Alpha|Close
+      tab: focus=select text=Open|Settings|Alpha|Close
+      tab: focus=close text=Open|Settings|Alpha|Close
+      tab: focus=select text=Open|Settings|Alpha|Close
+      shift-tab: focus=close text=Open|Settings|Alpha|Close
+      shift-tab: focus=select text=Open|Settings|Alpha|Close
+      down: focus=undefined text=Open|Settings|Alpha|Alpha|Beta|Close
+      escape: focus=select text=Open|Settings|Alpha|Close
+      open=false
+      escape: focus=open text=Open
+      open=true
+      enter: focus=popup text=Open|Settings|Alpha|Close
+      press popup: focus=popup text=Open|Settings|Alpha|Close
+      open=false
+      press backdrop: focus=open text=Open"
+    `)
+  })
+
+  it("keeps a Dialog open when a handler prevents Escape", () => {
+    testRoot.render(
+      <DialogPrimitive.Root defaultOpen>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Popup
+            style={{ width: 200, height: 100, backgroundColor: "#1e293b" }}
+            onKeyDown={(event) => {
+              if (event.key === "escape") event.preventDefault()
+            }}
+          >
+            <text>Unsaved</text>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    )
+    testRoot.renderer.simulateKeystrokes("escape")
+    expect(testRoot.renderer.getAllText()).toEqual(["Unsaved"])
   })
 })

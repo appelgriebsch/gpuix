@@ -1843,31 +1843,64 @@ native focus handle.
 ```
 
 GPUI dispatches matching key actions before raw keyboard callbacks. If an
-action consumes the key, `onKeyDown` does not fire. GPUIX does not bind `Tab` or
-`Shift+Tab`, so both reach element callbacks. Editors and terminals can send
-them directly to their input backend.
+action consumes the key, `onKeyDown` does not fire.
+
+### Tab moves focus by default
+
+**Tab** and **Shift+Tab** move focus through the tab order, like a browser. The
+default runs after every `onKeyDown` handler of that keystroke, so any handler
+can cancel it:
+
+```tsx
+<div
+  tabIndex={0}
+  onKeyDown={(event) => {
+    if (event.key !== 'tab') return
+    event.preventDefault() // this Tab stays here
+    insertIndent()
+  }}
+/>
+```
+
+Key events work like one DOM event bubbling to `window`:
+
+| Call | Effect |
+|---|---|
+| `event.preventDefault()` | Cancels the default. Tab does not move focus |
+| `event.stopPropagation()` | Skips ancestor `onKeyDown` and the window `onKeyDown`. The default still runs |
+| `event.defaultPrevented` | True after any earlier handler of this keystroke prevented it |
+
+Tab never types a tab character into `<input>` or `<textarea>`, also like a
+browser. An editor that wants one calls `preventDefault()` and inserts it.
+
+Turn the default off for the whole window with `tabNavigation: false`:
+
+```tsx
+render(<App />, { tabNavigation: false })
+```
+
+```
+keystroke ► GPUI actions ► element onKeyDown (focused → ancestors) ► render({ onKeyDown }) ► default
+                                   preventDefault() anywhere here cancels ─────────────────────┘
+```
+
+GPUI finishes the native dispatch before JavaScript runs, so these calls change
+what GPUIX does next. They cannot stop a GPUI action that already consumed the
+key.
 
 ### Renderer keyboard callbacks
 
-Pass `onKeyDown` or `onKeyUp` to `render()` for an opt-in window-level listener.
-The renderer callback fires after element callbacks for raw keys that no GPUI
-action consumed. It receives the renderer as its second argument:
+Pass `onKeyDown` or `onKeyUp` to `render()` for a window-level listener. It
+fires after element callbacks for raw keys that no GPUI action consumed, and
+before the Tab default. It receives the renderer as its second argument:
 
 ```tsx
 render(<App />, {
   onKeyDown(event, renderer) {
-    if (event.key !== 'tab') return
-    if (event.modifiers?.shift) renderer.focusPrevious?.()
-    else renderer.focusNext?.()
+    if (event.key === 'k' && event.modifiers?.cmd) openPalette()
   },
 })
 ```
-
-These callbacks observe native events. They do not expose GPUI's propagation
-control, so they cannot cancel or stop the native event.
-
-Do not also call `focusNext` from an element `onKeyDown`. Both move focus, and
-the window listener cannot stop the native event, so Tab would jump twice.
 
 ### Imperative focus
 
@@ -1913,6 +1946,7 @@ Each primitive has a dedicated namespace entry point:
 | `@gpuix/react/select` | `Root`, `Trigger`, `Value`, `Content`, `Item` |
 | `@gpuix/react/combobox` | `Root`, `Input`, `Content`, `List`, `Item`, `Empty` |
 | `@gpuix/react/tooltip` | `Provider`, `Root`, `Trigger`, `Content` |
+| `@gpuix/react/dialog` | `Root`, `Trigger`, `Portal`, `Backdrop`, `Popup`, `Title`, `Description`, `Close` |
 | `@gpuix/react/floating` | `FloatingLayer`, `renderSlot` |
 
 ### Build a local Select
@@ -2023,9 +2057,13 @@ const models = [
 </Select>
 ```
 
-The trigger participates in normal tab navigation. Opening the Select focuses
-its content. `Up`, `Down`, `Ctrl+P`, `Ctrl+N`, `Enter`, and `Escape` control the
-menu. Closing it restores focus to the trigger. Disabled items are skipped.
+The trigger is a tab stop, also with `asChild`, unless the part or its child
+sets its own `tabIndex`. Opening the Select focuses its content. `Up`, `Down`,
+`Ctrl+P`, `Ctrl+N`, `Enter`, and `Escape` control the menu. Escape goes through
+the [layer stack](#escape-closes-the-top-layer). The popup is modal
+like Base UI: Tab does not leave it. Closing with the keyboard or a selection
+restores focus to the trigger. A press outside closes it and leaves focus where
+the press put it. Disabled items are skipped.
 
 GPUI does not bubble clicks. Use `asChild` when a styled row paints the item
 fill, so that row becomes the real hit target:
@@ -2083,9 +2121,11 @@ object:
 </TooltipPrimitive.Provider>
 ```
 
-Combobox uses the native input for text editing, IME, clipboard, and focus.
-Tooltip `asChild` preserves the child ref and merges trigger behavior into that
-host element. All floating content uses GPUI's deferred `anchored()` layer,
+Combobox uses the native input for text editing, IME, clipboard, and focus. Tab
+in the input closes the popup and moves focus on. Combobox and Tooltip triggers
+are tab stops like the Select trigger. Tooltip `asChild` preserves the child ref
+and merges trigger behavior into that host element. The child's own handlers
+run first. All floating content uses GPUI's deferred `anchored()` layer,
 snaps inside the window, and occludes controls behind it.
 
 ### Overlay menus
@@ -2115,6 +2155,9 @@ Give every overlay an **opaque** fill (`#232323`, not `#23232399`).
 `FloatingLayer` defaults to `#1A1A1A`. Item rows should use the same solid
 color, or a solid hover color. A `#00000000` child on a blurred window punches
 through Metal to the desktop.
+
+A raw `<anchored>` with no fill in its style paints `#1A1A1A`. Set
+`backgroundColor: "transparent"` to paint nothing, as `Dialog.Portal` does.
 
 `FloatingLayer` copies uniform and per-corner border radii to its anchored
 surface, so rounded Select, Combobox, and Tooltip content does not show square
@@ -2158,14 +2201,75 @@ const box = renderer.getElementBounds?.(ref.current.id)
 // { x, y, width, height }
 ```
 
-### Trap Tab inside a dialog
+### Dialog
 
-GPUIX does not bind Tab. Own the key, then wrap inside the panel with
-`focusNextWithin` / `focusPreviousWithin`.
+Same parts as [Base UI Dialog](https://base-ui.com/react/components/dialog):
 
 ```tsx
-function onKeyDown(event: EventPayload) {
+import * as Dialog from '@gpuix/react/dialog'
+
+<Dialog.Root>
+  <Dialog.Trigger>Settings</Dialog.Trigger>
+  <Dialog.Portal>
+    <Dialog.Backdrop style={{ backgroundColor: '#00000080' }} />
+    <Dialog.Popup style={{ width: 420, padding: 16, backgroundColor: '#232323' }}>
+      <Dialog.Title>Settings</Dialog.Title>
+      <Dialog.Close>Done</Dialog.Close>
+    </Dialog.Popup>
+  </Dialog.Portal>
+</Dialog.Root>
+```
+
+| Part | Behavior |
+|---|---|
+| `Root` | `open`, `defaultOpen`, `onOpenChange`, `modal` (default `true`), `disablePointerDismissal` |
+| `Trigger` | Tab stop. Click, Enter, or Space opens |
+| `Portal` | Full-window deferred layer. Paints over `<virtual-list>`. Centers its children by default. Modal: blocks clicks and the wheel behind it |
+| `Backdrop` | Press closes the dialog |
+| `Popup` | Takes focus on open. Modal: Tab and Shift+Tab stay inside. Close gives focus back to the trigger |
+| `Close` | Tab stop. Click, Enter, or Space closes |
+
+The Popup focuses **itself**, so the first Tab enters it. To focus a field
+instead, pass `autoFocus={false}` to the Popup and `autoFocus` to the field.
+
+A Select or Tooltip inside the Popup opens above it, and Escape closes it first.
+
+### Escape closes the top layer
+
+Every open Dialog popup, Select, Combobox, and Tooltip is on one **layer stack**
+per window. Escape closes only the most recently opened layer, even when nothing
+is focused. It is a default action, like Tab, so any `onKeyDown` can keep it
+open:
+
+```tsx
+<Dialog.Popup
+  onKeyDown={(event) => {
+    if (event.key === 'escape' && dirty) event.preventDefault()
+  }}
+/>
+```
+
+A custom overlay joins the same stack with `useDismissLayer`:
+
+```tsx
+import { useDismissLayer } from '@gpuix/react'
+
+useDismissLayer(open, () => setOpen(false))
+```
+
+Solid calls `useDismissLayer(onEscape)` inside the branch that exists only
+while open. Framework-free code uses `pushDismissLayer(renderer, layer)`, which
+returns the function that removes the layer.
+
+### Trap Tab inside a custom panel
+
+`Dialog.Popup` already does this. For your own panel, prevent the default Tab,
+then wrap inside it with `focusNextWithin` / `focusPreviousWithin`.
+
+```tsx
+function onKeyDown(event: KeyEvent) {
   if (event.key !== 'tab' || !panel) return
+  event.preventDefault()
   if (event.modifiers?.shift) renderer.focusPreviousWithin?.(panel.id)
   else renderer.focusNextWithin?.(panel.id)
 }

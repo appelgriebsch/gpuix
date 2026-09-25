@@ -53,6 +53,24 @@ export {
   ComboboxValue,
 } from "./components/combobox.js"
 export {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogDescription,
+  DialogPopup,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "./components/dialog.js"
+export type {
+  DialogBackdropProps,
+  DialogCloseProps,
+  DialogPopupProps,
+  DialogPortalProps,
+  DialogProps,
+  DialogTriggerProps,
+} from "./components/dialog.js"
+export {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -64,6 +82,7 @@ export {
   mergeStyles,
   renderSlot,
   resolveStyle,
+  useDismissLayer,
 } from "./components/floating.js"
 export * from "@gpuix/native/host"
 export { GpuixRenderer } from "@gpuix/native"

@@ -15,6 +15,7 @@ import {
   floatingRootStyle,
   renderSlot,
   type FloatingContentProps,
+  useDismissLayer,
 } from "./floating.js"
 
 interface ProviderState {
@@ -131,18 +132,14 @@ export function TooltipTrigger(props: TooltipTriggerProps): JSX.Element {
     children: props.children,
     props: {
       ...props,
-      tabIndex: props.tabIndex ?? 0,
       onMouseEnter(event: EventPayload) { props.onMouseEnter?.(event); state.scheduleOpen() },
       onMouseLeave(event: EventPayload) { props.onMouseLeave?.(event); state.scheduleClose() },
       onMouseDown(event: EventPayload) { props.onMouseDown?.(event); state.close() },
       onClick(event: EventPayload) { props.onClick?.(event); state.close() },
       onFocus(event: EventPayload) { props.onFocus?.(event); state.openNow() },
       onBlur(event: EventPayload) { props.onBlur?.(event); state.close() },
-      onKeyDown(event: EventPayload) {
-        props.onKeyDown?.(event)
-        if (event.key === "escape") state.close()
-      },
     },
+    defaultTabIndex: 0,
   })
 }
 
@@ -153,6 +150,7 @@ export function TooltipContent(props: TooltipContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
+      useDismissLayer(state.close)
       return FloatingLayer({
         ...props,
         side: props.side ?? "top",

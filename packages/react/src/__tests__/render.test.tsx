@@ -355,73 +355,83 @@ describeNative("render()", () => {
     expect(observed).toEqual(["second"])
   })
 
-  it("delivers Tab to elements and the renderer without moving focus", () => {
-    const windowKeys: string[] = []
-    const windowKeyUps: string[] = []
-    const elementKeys: string[] = []
+  it("moves focus on Tab unless a key handler prevents it", () => {
+    const log: string[] = []
+    const label = (event: { key?: string; modifiers?: { shift: boolean } | null }) =>
+      `${event.modifiers?.shift ? "shift-" : ""}${event.key}`
 
     render(
-      <div style={{ width: 200, height: 100 }}>
+      <div
+        style={{ width: 200, height: 100 }}
+        onKeyDown={(event) => log.push(`parent:${label(event)}`)}
+      >
         <div
           autoFocus
           tabIndex={0}
-          onKeyDown={(event) => {
-            elementKeys.push(
-              `first:${event.modifiers?.shift ? "shift-" : ""}${event.key}`
-            )
-          }}
+          onKeyDown={(event) => log.push(`first:${label(event)}`)}
         />
         <div
           tabIndex={0}
           onKeyDown={(event) => {
-            elementKeys.push(
-              `second:${event.modifiers?.shift ? "shift-" : ""}${event.key}`
-            )
+            log.push(`second:${label(event)}`)
+            // An editor takes Tab. Shift+Tab stays the default.
+            if (event.key === "tab" && !event.modifiers?.shift) event.preventDefault()
+            if (event.key === "x") event.stopPropagation()
           }}
         />
       </div>,
       {
         renderer,
-        onKeyDown: (event) => {
-          windowKeys.push(`${event.modifiers?.shift ? "shift-" : ""}${event.key}`)
-        },
-        onKeyUp: (event) => {
-          windowKeyUps.push(`${event.modifiers?.shift ? "shift-" : ""}${event.key}`)
+        onKeyDown: (event, host) => {
+          log.push(`window:${label(event)} prevented=${event.defaultPrevented} focus=${host.getFocusedElementId?.()}`)
         },
       }
     )
     renderer.flush()
+    const [first, second] = renderer
+      .findByType("div")
+      .filter((element) => element.events.has("keyDown"))
+      .slice(1)
 
     renderer.simulateKeystrokes("tab")
-    renderer.simulateKeystrokes("a")
-
-    const second = renderer
-      .findByType("div")
-      .filter((element) => element.events.has("keyDown"))[1]
-    renderer.focusElement(second.id)
+    expect(renderer.getFocusedElementId()).toBe(second.id)
+    renderer.simulateKeystrokes("tab")
+    expect(renderer.getFocusedElementId()).toBe(second.id)
+    renderer.simulateKeystrokes("x")
     renderer.simulateKeystrokes("shift-tab")
-    renderer.simulateKeystrokes("b")
-    renderer.nativeSimulateKeyUp(second.id, "shift-tab")
+    expect(renderer.getFocusedElementId()).toBe(first.id)
 
-    expect({ windowKeys, windowKeyUps, elementKeys }).toMatchInlineSnapshot(`
-      {
-        "elementKeys": [
-          "first:tab",
-          "first:a",
-          "second:shift-tab",
-          "second:b",
-        ],
-        "windowKeyUps": [
-          "shift-tab",
-        ],
-        "windowKeys": [
-          "tab",
-          "a",
-          "shift-tab",
-          "b",
-        ],
-      }
+    const trace = log.join("\n")
+      .replaceAll(`focus=${first.id}`, "focus=FIRST")
+      .replaceAll(`focus=${second.id}`, "focus=SECOND")
+    expect("\n" + trace).toMatchInlineSnapshot(`
+      "
+      first:tab
+      parent:tab
+      window:tab prevented=false focus=FIRST
+      second:tab
+      parent:tab
+      window:tab prevented=true focus=SECOND
+      second:x
+      second:shift-tab
+      parent:shift-tab
+      window:shift-tab prevented=false focus=SECOND"
     `)
+  })
+
+  it("leaves Tab alone when tabNavigation is false", () => {
+    render(
+      <div style={{ width: 200, height: 100 }}>
+        <div autoFocus tabIndex={0} />
+        <div tabIndex={0} />
+      </div>,
+      { renderer, tabNavigation: false }
+    )
+    renderer.flush()
+    const focused = renderer.getFocusedElementId()
+    expect(focused).not.toBeNull()
+    renderer.simulateKeystrokes("tab")
+    expect(renderer.getFocusedElementId()).toBe(focused)
   })
 
   it("remounts when the app component identity changes", () => {
