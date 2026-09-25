@@ -4,8 +4,6 @@ import {
   createComponent,
   createContext,
   createSignal,
-  onCleanup,
-  onMount,
   Show,
   splitProps,
   useContext,
@@ -16,7 +14,6 @@ import { resolveFocusTarget } from "@gpuix/native/host"
 import type { FocusTarget, HostProps, KeyEvent } from "@gpuix/native/host"
 import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
-import { createWindowSize } from "../primitives.js"
 import { useGpuixRequired } from "../root.js"
 import { DismissableLayer, renderSlot } from "./floating.js"
 
@@ -117,12 +114,11 @@ export function DialogPortal(props: DialogPortalProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      const size = createWindowSize()
       return jsx("anchored", {
         ...props,
-        position: { x: 0, y: 0 },
-        anchor: "topLeft",
-        fit: "switch",
+        // Native sizes the layer to the viewport, so a resize never leaves an
+        // uncovered strip that clicks could reach.
+        fill: "window",
         deferred: true,
         // Below menus and tooltips (priority 1), so a Select inside the popup
         // opens on top of it.
@@ -133,8 +129,6 @@ export function DialogPortal(props: DialogPortalProps): JSX.Element {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: size().width,
-            height: size().height,
             // Explicit transparent: the Backdrop paints the dim, not the layer.
             backgroundColor: "transparent",
             ...props.style,
@@ -185,22 +179,11 @@ export function DialogPopup(allProps: DialogPopupProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      // Read before moving focus, so a dialog opened from app state (no
-      // trigger) still knows where to return. The popup is not built yet.
-      const previous = renderer.getFocusedElementId?.() ?? null
-      onMount(() => {
-        const initial = resolveFocusTarget(focus.initialFocus, () => popup?.id ?? null)
-        if (initial !== null) renderer.focusElement?.(initial)
-      })
-      onCleanup(() => {
-        const final = resolveFocusTarget(
-          focus.finalFocus,
-          () => state.trigger.current?.id ?? previous
-        )
-        if (final !== null) renderer.focusElement?.(final)
-      })
       return createComponent(DismissableLayer, {
         onEscapeKeyDown: () => state.setOpen(false),
+        initialFocus: () => resolveFocusTarget(focus.initialFocus, () => popup?.id ?? null),
+        finalFocus: (previous) =>
+          resolveFocusTarget(focus.finalFocus, () => state.trigger.current?.id ?? previous),
         get children() {
           return jsx("div", {
             ...props,

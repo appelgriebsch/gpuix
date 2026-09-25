@@ -138,26 +138,38 @@ export interface DismissableLayerProps {
   children?: ReactNode
   /** Escape reached the window, this layer is on top, and nothing prevented it. */
   onEscapeKeyDown: (event: KeyEvent) => void
+  /** Element to focus when the layer opens on top. Null leaves focus. */
+  initialFocus?: () => number | null
+  /** Element to focus on close. `previous` is the focus from before it opened. */
+  finalFocus?: (previous: number | null) => number | null
 }
 
 /**
  * Put an open overlay on the window's layer stack while mounted. Escape closes
  * only the top layer. Layers inside this one, such as a Select in a Dialog,
- * are always above it.
+ * are always above it. The stack also moves focus in and out, in stack order.
  */
-export function DismissableLayer({ children, onEscapeKeyDown }: DismissableLayerProps): ReactElement {
+export function DismissableLayer({ children, ...handlers }: DismissableLayerProps): ReactElement {
   const { renderer } = useGpuix()
   const parent = useContext(DismissLayerContext)
-  const latest = useRef(onEscapeKeyDown)
-  latest.current = onEscapeKeyDown
+  // Read during render, before this layer's elements are committed. After the
+  // commit an autoFocus inside the layer may already hold focus.
+  const [previousFocus] = useState(() => renderer?.getFocusedElementId?.() ?? null)
+  const latest = useRef(handlers)
+  latest.current = handlers
   const layer = useMemo<DismissLayer>(
-    () => ({ parent, onEscapeKeyDown: (event) => latest.current(event) }),
+    () => ({
+      parent,
+      onEscapeKeyDown: (event) => latest.current.onEscapeKeyDown(event),
+      initialFocus: () => latest.current.initialFocus?.() ?? null,
+      finalFocus: (previous) => latest.current.finalFocus?.(previous) ?? null,
+    }),
     [parent]
   )
   useLayoutEffect(() => {
     if (!renderer) return
-    return pushDismissLayer(renderer, layer)
-  }, [renderer, layer])
+    return pushDismissLayer(renderer, layer, { previousFocus })
+  }, [renderer, layer, previousFocus])
   return <DismissLayerContext.Provider value={layer}>{children}</DismissLayerContext.Provider>
 }
 

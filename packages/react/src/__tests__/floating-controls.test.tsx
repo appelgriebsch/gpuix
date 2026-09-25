@@ -1158,6 +1158,47 @@ describeNative("floating controls", () => {
     `)
   })
 
+  it("sizes the Dialog portal to the window natively", () => {
+    // Not the 1280x800 default, and no JS reads the window size: native must.
+    const root = createTestRoot({ width: 900, height: 500 })
+    root.render(
+      <DialogPrimitive.Root defaultOpen>
+        <DialogPrimitive.Portal testId="portal">
+          <DialogPrimitive.Backdrop testId="backdrop" style={{ backgroundColor: "#00000080" }} />
+          <DialogPrimitive.Popup testId="popup" style={{ width: 200, height: 100, backgroundColor: "#1e293b" }} />
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    )
+    const bounds = (testId) => root.renderer.getElementBounds(root.renderer.findByTestId(testId).id)
+    expect({
+      portal: bounds("portal"),
+      backdrop: bounds("backdrop"),
+      popup: bounds("popup"),
+    }).toMatchInlineSnapshot(`
+      {
+        "backdrop": {
+          "height": 500,
+          "width": 900,
+          "x": 0,
+          "y": 0,
+        },
+        "popup": {
+          "height": 100,
+          "width": 200,
+          "x": 350,
+          "y": 200,
+        },
+        "portal": {
+          "height": 500,
+          "width": 900,
+          "x": 0,
+          "y": 0,
+        },
+      }
+    `)
+    root.unmount()
+  })
+
   it("keeps a Dialog open when a handler prevents Escape", () => {
     testRoot.render(
       <DialogPrimitive.Root defaultOpen>
@@ -1280,5 +1321,73 @@ describeNative("floating controls", () => {
         "close: launcher",
       ]
     `)
+  })
+
+  it("moves focus in stack order when nested dialogs open and close together", () => {
+    function Nested({ open, autoFocusField }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", width: 600, height: 400, padding: 12, gap: 8 }}>
+          <div autoFocus tabIndex={0} testId="launcher" style={{ width: 80, height: 24 }} />
+          <DialogPrimitive.Root open={open.outer}>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Popup testId="outer" style={{ width: 400, padding: 16, backgroundColor: "#1e293b" }}>
+                <input autoFocus={autoFocusField} testId="outer-field" style={{ width: 120, height: 28 }} />
+                <DialogPrimitive.Root open={open.inner}>
+                  <DialogPrimitive.Portal>
+                    <DialogPrimitive.Popup testId="inner" style={{ width: 200, height: 80, backgroundColor: "#334155" }} />
+                  </DialogPrimitive.Portal>
+                </DialogPrimitive.Root>
+              </DialogPrimitive.Popup>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        </div>
+      )
+    }
+    const renderer = testRoot.renderer
+    const focused = () => renderer.getElement(renderer.getFocusedElementId())?.testId
+    const steps = []
+    const show = (label, open, autoFocusField = false) => {
+      testRoot.render(<Nested open={open} autoFocusField={autoFocusField} />)
+      steps.push(`${label}: ${focused()}`)
+    }
+    show("mount", { outer: false, inner: false })
+    show("open both", { outer: true, inner: true })
+    show("close inner", { outer: true, inner: false })
+    show("close outer", { outer: false, inner: false })
+    show("open both", { outer: true, inner: true })
+    show("close both", { outer: false, inner: false })
+    show("open outer, field autoFocus", { outer: true, inner: false }, true)
+    show("close outer", { outer: false, inner: false }, true)
+    expect(steps).toMatchInlineSnapshot(`
+      [
+        "mount: launcher",
+        "open both: inner",
+        "close inner: outer",
+        "close outer: launcher",
+        "open both: inner",
+        "close both: launcher",
+        "open outer, field autoFocus: outer",
+        "close outer: launcher",
+      ]
+    `)
+  })
+
+  it("drops a pending focus request when the user moves focus first", () => {
+    function Demo({ late }) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", width: 400, height: 300, gap: 8 }}>
+          <div autoFocus tabIndex={0} testId="a" style={{ width: 80, height: 24 }} />
+          <div tabIndex={0} testId="b" style={{ width: 80, height: 24 }} />
+          <div tabIndex={late ? 0 : undefined} testId="late" style={{ width: 80, height: 24 }} />
+        </div>
+      )
+    }
+    const renderer = testRoot.renderer
+    testRoot.render(<Demo late={false} />)
+    // No focus handle yet, so the request waits.
+    renderer.focusElement(renderer.findByTestId("late").id)
+    renderer.simulateKeystrokes("tab")
+    testRoot.render(<Demo late />)
+    expect(renderer.getElement(renderer.getFocusedElementId())?.testId).toBe("b")
   })
 })

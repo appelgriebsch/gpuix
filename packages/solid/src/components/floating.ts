@@ -1,4 +1,4 @@
-import { createComponent, createContext, onCleanup, useContext, type JSX } from "solid-js"
+import { createComponent, createContext, onCleanup, onMount, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import { pushDismissLayer } from "@gpuix/native/host"
 import type { DismissLayer, HostProps, KeyEvent, StyleDesc } from "@gpuix/native/host"
@@ -46,19 +46,33 @@ export interface DismissableLayerProps {
   children?: JSX.Element
   /** Escape reached the window, this layer is on top, and nothing prevented it. */
   onEscapeKeyDown: (event: KeyEvent) => void
+  /** Element to focus when the layer opens on top. Null leaves focus. */
+  initialFocus?: () => number | null
+  /** Element to focus on close. `previous` is the focus from before it opened. */
+  finalFocus?: (previous: number | null) => number | null
 }
 
 /**
  * Put an open overlay on the window's layer stack while mounted. Escape closes
  * only the top layer. Layers inside this one, such as a Select in a Dialog,
- * are always above it.
+ * are always above it. The stack also moves focus in and out, in stack order.
  */
 export function DismissableLayer(props: DismissableLayerProps): JSX.Element {
+  const renderer = useGpuixRequired()
+  // Read now: Solid has not created this layer's elements yet.
+  const previousFocus = renderer.getFocusedElementId?.() ?? null
   const layer: DismissLayer = {
     parent: useContext(DismissLayerContext),
     onEscapeKeyDown: (event) => props.onEscapeKeyDown(event),
+    initialFocus: () => props.initialFocus?.() ?? null,
+    finalFocus: (previous) => props.finalFocus?.(previous) ?? null,
   }
-  onCleanup(pushDismissLayer(useGpuixRequired(), layer))
+  let pop: (() => void) | undefined
+  // After the children exist, so initialFocus can name one of them.
+  onMount(() => {
+    pop = pushDismissLayer(renderer, layer, { previousFocus })
+  })
+  onCleanup(() => pop?.())
   return createComponent(DismissLayerContext.Provider, {
     value: layer,
     get children() { return props.children },

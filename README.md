@@ -2160,6 +2160,17 @@ through Metal to the desktop.
 A raw `<anchored>` with no fill in its style paints `#1A1A1A`. Set
 `backgroundColor: "transparent"` to paint nothing, as `Dialog.Portal` does.
 
+`fill="window"` makes an `<anchored>` cover the whole window, like
+`Dialog.Portal`. Native reads the viewport size every frame, so the layer
+follows a resize in the same frame. It ignores `position`, `side`, `align`,
+`anchor`, `offset`, and `fit`.
+
+```tsx
+<anchored fill="window" style={{ backgroundColor: 'transparent' }}>
+  <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+</anchored>
+```
+
 `FloatingLayer` copies uniform and per-corner border radii to its anchored
 surface, so rounded Select, Combobox, and Tooltip content does not show square
 corners behind it. It also puts `visibility` and `opacity` on that outer surface
@@ -2225,7 +2236,7 @@ import * as Dialog from '@gpuix/react/dialog'
 |---|---|
 | `Root` | `open`, `defaultOpen`, `onOpenChange`, `modal` (default `true`), `disablePointerDismissal` |
 | `Trigger` | Tab stop. Click, Enter, or Space opens |
-| `Portal` | Full-window deferred layer. Paints over `<virtual-list>`. Centers its children by default. Modal: blocks clicks and the wheel behind it |
+| `Portal` | Full-window deferred layer (`<anchored fill="window">`). Follows a resize in the same frame. Paints over `<virtual-list>`. Centers its children by default. Modal: blocks clicks and the wheel behind it |
 | `Backdrop` | Press closes the dialog |
 | `Popup` | Moves focus in on open and out on close. Modal: Tab and Shift+Tab stay inside |
 | `Close` | Tab stop. Click, Enter, or Space closes |
@@ -2249,7 +2260,14 @@ tabbable element. GPUI's tab order exists only after the popup has painted,
 so GPUIX focuses the popup and lets the first Tab walk that order.
 
 A dialog opened from app state, with no `Trigger`, still returns focus: the
-Popup records the focused element when it opens.
+Popup records the focused element before it mounts.
+
+`initialFocus` beats an `autoFocus` inside the popup. Pass the field as
+`initialFocus` instead.
+
+Nested dialogs follow the layer stack. When both open in one update, the inner
+one takes focus. When both close in one update, focus goes to the outer one's
+return target.
 
 A Select or Tooltip inside the Popup opens above it, and Escape closes it first.
 
@@ -2282,8 +2300,12 @@ import { DismissableLayer } from '@gpuix/react' // or '@gpuix/solid'
 ```
 
 A layer mounted inside another is always above it, even when both open in the
-same commit. Framework-free code uses `pushDismissLayer(renderer, layer)` with a
-`parent` field, and calls the returned function when the layer closes.
+same commit. `DismissableLayer` also takes `initialFocus()` and
+`finalFocus(previous)`, which return an element id or `null`. The stack calls
+them in stack order, so only the top layer takes focus on open.
+
+Framework-free code uses `pushDismissLayer(renderer, layer, { previousFocus })`
+with a `parent` field, and calls the returned function when the layer closes.
 
 ### Trap Tab inside a custom panel
 

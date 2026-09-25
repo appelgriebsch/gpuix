@@ -5,7 +5,6 @@ import React, {
   forwardRef,
   useCallback,
   useContext,
-  useLayoutEffect,
   useRef,
 } from "react"
 import type { ReactElement, ReactNode } from "react"
@@ -13,7 +12,6 @@ import type { EventPayload } from "@gpuix/native"
 import { resolveFocusTarget } from "@gpuix/native/host"
 import type { FocusTarget, KeyEvent, Props, PublicInstance } from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
-import { useWindowSize } from "../hooks/use-window-size.js"
 import {
   renderSlot,
   setRefs,
@@ -119,23 +117,17 @@ export interface DialogPortalProps extends Props {}
  * and everything else. Mounted only while the dialog is open.
  */
 export const DialogPortal = forwardRef<PublicInstance, DialogPortalProps>(
-  function DialogPortal(props, ref) {
+  function DialogPortal({ style, children, ...props }, ref) {
     const context = useDialogContext("DialogPortal")
     if (!context.open) return null
-    return <DialogPortalSurface {...props} ref={ref} modal={context.modal} />
-  }
-)
-
-const DialogPortalSurface = forwardRef<PublicInstance, DialogPortalProps & { modal: boolean }>(
-  function DialogPortalSurface({ modal, style, children, ...props }, ref) {
-    const size = useWindowSize()
+    const { modal } = context
     return (
       <anchored
         {...props}
         ref={ref}
-        position={{ x: 0, y: 0 }}
-        anchor="topLeft"
-        fit="switch"
+        // Native sizes the layer to the viewport, so a resize never leaves an
+        // uncovered strip that clicks could reach.
+        fill="window"
         deferred
         // Below menus and tooltips (priority 1), so a Select inside the popup
         // opens on top of it.
@@ -145,8 +137,6 @@ const DialogPortalSurface = forwardRef<PublicInstance, DialogPortalProps & { mod
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: size.width,
-          height: size.height,
           // Explicit transparent: the Backdrop paints the dim, not the layer.
           backgroundColor: "transparent",
           ...style,
@@ -195,30 +185,15 @@ export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
     const context = useDialogContext("DialogPopup")
     const { renderer } = useGpuix()
     const popupRef = useRef<PublicInstance | null>(null)
-    const focusTargets = useRef({ initialFocus, finalFocus })
-    focusTargets.current = { initialFocus, finalFocus }
-    const { triggerRef } = context
-    useLayoutEffect(() => {
-      if (!context.open || !renderer) return
-      // Read before moving focus, so a dialog opened from app state (no
-      // trigger) still knows where to return.
-      const previous = renderer.getFocusedElementId?.() ?? null
-      const initial = resolveFocusTarget(
-        focusTargets.current.initialFocus,
-        () => popupRef.current?.id ?? null
-      )
-      if (initial !== null) renderer.focusElement?.(initial)
-      return () => {
-        const final = resolveFocusTarget(
-          focusTargets.current.finalFocus,
-          () => triggerRef.current?.id ?? previous
-        )
-        if (final !== null) renderer.focusElement?.(final)
-      }
-    }, [context.open, renderer, triggerRef])
     if (!context.open) return null
     return (
-      <DismissableLayer onEscapeKeyDown={() => context.setOpen(false)}>
+      <DismissableLayer
+        onEscapeKeyDown={() => context.setOpen(false)}
+        initialFocus={() => resolveFocusTarget(initialFocus, () => popupRef.current?.id ?? null)}
+        finalFocus={(previous) =>
+          resolveFocusTarget(finalFocus, () => context.triggerRef.current?.id ?? previous)
+        }
+      >
         <div
           {...props}
           ref={(value: PublicInstance | null) => {

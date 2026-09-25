@@ -3400,7 +3400,7 @@ pub(crate) struct GpuixView {
     /// Created lazily for elements with keyboard or focus/blur listeners.
     /// Handles persist across renders so GPUI maintains focus state.
     pub(crate) focus_handles: HashMap<u64, gpui::FocusHandle>,
-    pending_focus_element: Option<u64>,
+    pending_focus_element: Option<PendingFocus>,
     /// Active focus/blur subscriptions keyed by element and event type.
     pub(crate) focus_subscriptions: HashMap<(u64, String), gpui::Subscription>,
     /// Registry for custom element types (input, editor, diff, etc.).
@@ -4437,7 +4437,7 @@ impl GpuixView {
             self.pending_focus_element = None;
             handle.focus(window, cx);
         } else {
-            self.pending_focus_element = Some(id);
+            self.pending_focus_element = Some(PendingFocus::new(id, window, cx));
         }
         cx.notify();
     }
@@ -4611,6 +4611,13 @@ impl GpuixView {
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) {
+        // Checked before this frame's autoFocus runs: an explicit request
+        // outranks autoFocus, but not a Tab or click that came after it.
+        if self.pending_focus_element.is_some_and(|pending| {
+            window.focused(cx).map(|handle| handle.id()) != pending.focused_at_request
+        }) {
+            self.pending_focus_element = None;
+        }
         let tab_index = |element: &crate::retained_tree::RetainedElement| {
             element
                 .custom_props
@@ -4658,7 +4665,7 @@ impl GpuixView {
         // microtask, Windows and Linux render on their own thread).
         if let Some(handle) = self
             .pending_focus_element
-            .and_then(|id| self.focus_handles.get(&id).cloned())
+            .and_then(|pending| self.focus_handles.get(&pending.id).cloned())
         {
             handle.focus(window, cx);
             self.pending_focus_element = None;
@@ -4700,6 +4707,24 @@ impl GpuixView {
     }
 }
 
+/// A `focusElement` request for an element whose focus handle does not exist
+/// yet. It is dropped when focus moves any other way first (Tab, a click, a
+/// newer request), so a late element never steals focus from the user.
+#[derive(Clone, Copy)]
+struct PendingFocus {
+    id: u64,
+    focused_at_request: Option<gpui::FocusId>,
+}
+
+impl PendingFocus {
+    fn new(id: u64, window: &gpui::Window, cx: &gpui::App) -> Self {
+        Self {
+            id,
+            focused_at_request: window.focused(cx).map(|handle| handle.id()),
+        }
+    }
+}
+
 impl gpui::Render for GpuixView {
     fn render(
         &mut self,
@@ -4712,7 +4737,7 @@ impl gpui::Render for GpuixView {
 
         #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
         if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
-            self.pending_focus_element = Some(id);
+            self.pending_focus_element = Some(PendingFocus::new(id, window, cx));
         }
 
         // Clone Arc so we don't borrow self.tree — frees self for focus_handles access.

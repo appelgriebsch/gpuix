@@ -38,6 +38,32 @@ export interface DismissLayer {
   readonly parent?: DismissLayer
   /** Escape reached the window and no handler prevented it. */
   onEscapeKeyDown(event: KeyEvent): void
+  /**
+   * Element to focus when the layer opens, or null to leave focus. Called
+   * only when the layer lands on top, so the innermost of several layers that
+   * open together takes focus.
+   */
+  initialFocus?(): number | null
+  /**
+   * Element to focus when the layer closes, or null to leave focus.
+   * `previous` is the focus from before the layer opened. Not called when the
+   * parent layer closed first, because the parent restores for both.
+   */
+  finalFocus?(previous: number | null): number | null
+}
+
+export interface PushLayerOptions {
+  /**
+   * The focused element from before this layer's elements were committed.
+   * Read it before the commit: once committed, an `autoFocus` inside the
+   * layer may already have taken focus.
+   */
+  previousFocus?: number | null
+}
+
+interface LayerEntry {
+  layer: DismissLayer
+  previous: number | null
 }
 
 function isAncestor(ancestor: DismissLayer, layer: DismissLayer): boolean {
@@ -53,7 +79,7 @@ export interface RendererState {
   dispatch(event: EventPayload): boolean
   current(): RendererRootBinding | undefined
   /** Open a layer. Call the returned function when it closes. */
-  pushLayer(layer: DismissLayer): () => void
+  pushLayer(layer: DismissLayer, options?: PushLayerOptions): () => void
 }
 
 type ActiveRoot = RendererRootBinding & { handlers: RendererRootHandlers }
@@ -68,8 +94,12 @@ interface KeystrokeFlags {
 const STATE_KEY = Symbol.for("@gpuix/native/renderer-states")
 
 /** Register an open overlay on this renderer's layer stack. */
-export function pushDismissLayer(renderer: NativeRenderer, layer: DismissLayer): () => void {
-  return createRendererState(renderer).pushLayer(layer)
+export function pushDismissLayer(
+  renderer: NativeRenderer,
+  layer: DismissLayer,
+  options?: PushLayerOptions
+): () => void {
+  return createRendererState(renderer).pushLayer(layer, options)
 }
 
 function allStates(): WeakMap<NativeRenderer, RendererState> {
@@ -109,7 +139,7 @@ export function createRendererState(renderer: NativeRenderer): RendererState {
   const ids = { nextElementId: 0 }
   let generation = 0
   let active: ActiveRoot | undefined
-  const layers: DismissLayer[] = []
+  const layers: LayerEntry[] = []
   // Native emits one keystroke's events back to back, in GPUI bubble order,
   // and the window event last. So only the latest keystroke needs flags.
   let keystroke: KeystrokeFlags = { id: undefined, prevented: false, stopped: false }
@@ -173,7 +203,7 @@ export function createRendererState(renderer: NativeRenderer): RendererState {
         const runDefault = () => {
           if (!keyDown || flags.prevented || hasCommandModifier(keyEvent)) return
           if (keyEvent.key === "escape") {
-            layers.at(-1)?.onEscapeKeyDown(keyEvent)
+            layers.at(-1)?.layer.onEscapeKeyDown(keyEvent)
           } else if (keyEvent.key === "tab" && root.handlers.tabNavigation !== false) {
             if (keyEvent.modifiers?.shift) renderer.focusPrevious?.()
             else renderer.focusNext?.()
@@ -207,15 +237,37 @@ export function createRendererState(renderer: NativeRenderer): RendererState {
       return true
     },
     current: () => active,
-    pushLayer(layer) {
+    pushLayer(layer, options = {}) {
+      const entry: LayerEntry = {
+        layer,
+        previous: options.previousFocus ?? renderer.getFocusedElementId?.() ?? null,
+      }
       // A framework can open a nested layer before its parent in one commit
       // (React runs child effects first), so nesting decides, not call order.
-      const firstChild = layers.findIndex((open) => isAncestor(layer, open))
-      if (firstChild < 0) layers.push(layer)
-      else layers.splice(firstChild, 0, layer)
+      const firstChild = layers.findIndex((open) => isAncestor(layer, open.layer))
+      if (firstChild < 0) {
+        layers.push(entry)
+        const target = layer.initialFocus?.() ?? null
+        if (target !== null) renderer.focusElement?.(target)
+      } else {
+        layers.splice(firstChild, 0, entry)
+        // The children opened in the same commit and captured the same
+        // pre-open focus. Closing one alone must return into this layer.
+        const inside = layer.initialFocus?.() ?? null
+        for (const child of layers.slice(firstChild + 1)) {
+          if (isAncestor(layer, child.layer) && child.previous === entry.previous) {
+            child.previous = inside
+          }
+        }
+      }
       return () => {
-        const index = layers.indexOf(layer)
-        if (index >= 0) layers.splice(index, 1)
+        const index = layers.indexOf(entry)
+        if (index < 0) return
+        layers.splice(index, 1)
+        // A parent that closed first already restored focus for its subtree.
+        if (layer.parent && !layers.some((open) => open.layer === layer.parent)) return
+        const target = layer.finalFocus?.(entry.previous) ?? null
+        if (target !== null) renderer.focusElement?.(target)
       }
     },
   }
@@ -266,11 +318,14 @@ export interface FocusableNode {
  * - an element or a ref to one: that element
  * - a function: returns one of the above; `null` means the default
  */
-export type FocusTarget<Node extends FocusableNode = FocusableNode> =
+type FocusTargetValue<Node extends FocusableNode> =
   | boolean
   | Node
   | { readonly current: Node | null }
-  | (() => Node | boolean | null | undefined)
+
+export type FocusTarget<Node extends FocusableNode = FocusableNode> =
+  | FocusTargetValue<Node>
+  | (() => FocusTargetValue<Node> | null | undefined)
 
 /** Resolve a `FocusTarget` to an element id, or null when focus must stay. */
 export function resolveFocusTarget<Node extends FocusableNode>(

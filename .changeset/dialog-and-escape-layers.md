@@ -28,4 +28,6 @@ import * as Dialog from '@gpuix/react/dialog' // or '@gpuix/solid/dialog'
 
 Escape is now a default action on one layer stack per window. Every open Dialog, Select, Combobox, and Tooltip is a layer. Escape closes only the most recently opened one, so a Select inside a Dialog closes first. It works when nothing is focused, and `event.preventDefault()` in any `onKeyDown` keeps the layer open. A layer mounted inside another stays above it, even when both open in one commit. Custom overlays join the stack with `<DismissableLayer onEscapeKeyDown>`, or `pushDismissLayer(renderer, layer)` without a framework.
 
+`<anchored fill="window">` covers the whole window and follows a resize in the same frame, because native reads the viewport size during render. `Dialog.Portal` uses it, so it no longer polls the window size from JavaScript every 100 ms, and a resize never leaves an uncovered strip that clicks could reach.
+
 A raw `<anchored>` with an explicit `backgroundColor: "transparent"` now paints no fill. Without any fill in its style it still paints `#1A1A1A`.
