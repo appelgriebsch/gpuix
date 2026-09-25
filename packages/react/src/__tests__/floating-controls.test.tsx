@@ -1,7 +1,7 @@
 /** End-to-end tests for headless floating controls over the native GPUI pipeline. */
 // @ts-nocheck
 
-import React, { useState } from "react"
+import React, { useRef, useState } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
 import * as ComboboxPrimitive from "../components/combobox"
 import { FloatingLayer } from "../components/floating"
@@ -1238,6 +1238,47 @@ describeNative("floating controls", () => {
           "beta",
         ],
       }
+    `)
+  })
+
+  it("focuses initialFocus on open and returns focus without a Trigger", () => {
+    function Demo() {
+      const [open, setOpen] = useState(false)
+      const fieldRef = useRef(null)
+      return (
+        <div style={{ display: "flex", flexDirection: "column", width: 600, height: 400, padding: 12, gap: 8 }}>
+          <div
+            autoFocus
+            tabIndex={0}
+            testId="launcher"
+            onKeyDown={(event) => {
+              if (event.key === "enter") setOpen(true)
+            }}
+            style={{ width: 80, height: 24 }}
+          />
+          <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Popup initialFocus={fieldRef} style={{ width: 300, padding: 16, backgroundColor: "#1e293b" }}>
+                <div tabIndex={0} testId="first" style={{ width: 60, height: 24 }} />
+                <input ref={fieldRef} testId="field" style={{ width: 160, height: 28 }} />
+              </DialogPrimitive.Popup>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        </div>
+      )
+    }
+    testRoot.render(<Demo />)
+    const focused = () => testRoot.renderer.getElement(testRoot.renderer.getFocusedElementId())?.testId
+    const steps = []
+    testRoot.renderer.simulateKeystrokes("enter")
+    steps.push(`open: ${focused()}`)
+    testRoot.renderer.simulateKeystrokes("escape")
+    steps.push(`close: ${focused()}`)
+    expect(steps).toMatchInlineSnapshot(`
+      [
+        "open: field",
+        "close: launcher",
+      ]
     `)
   })
 })

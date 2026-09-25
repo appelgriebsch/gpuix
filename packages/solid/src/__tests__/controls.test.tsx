@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "../index.js"
 import { createTestRoot, hasNativeTestRenderer } from "../testing.js"
+import type { HostElement } from "../host.js"
 
 describe.skipIf(!hasNativeTestRenderer)("Solid controls", () => {
   it("selects with keyboard and click", () => {
@@ -205,5 +206,39 @@ describe.skipIf(!hasNativeTestRenderer)("Solid controls", () => {
       "press popup: text=Open|Settings|pick|Close",
       "press backdrop: focus=open text=Open",
     ])
+  })
+
+  it("focuses initialFocus on open and returns focus without a Trigger", () => {
+    const [open, setOpen] = createSignal(false)
+    let field!: HostElement
+    const app = createTestRoot()
+    app.render(() => (
+      <div style={{ display: "flex", flexDirection: "column", width: 600, height: 400, gap: 8 }}>
+        <div
+          autoFocus
+          tabIndex={0}
+          testId="launcher"
+          onKeyDown={(event) => {
+            if (event.key === "enter") setOpen(true)
+          }}
+          style={{ width: 80, height: 24 }}
+        />
+        <Dialog open={open()} onOpenChange={setOpen}>
+          <DialogPortal>
+            <DialogPopup initialFocus={() => field} style={{ width: 300, padding: 16, backgroundColor: "#1e293b" }}>
+              <div tabIndex={0} testId="first" style={{ width: 60, height: 24 }} />
+              <input ref={field} testId="field" style={{ width: 160, height: 28 }} />
+            </DialogPopup>
+          </DialogPortal>
+        </Dialog>
+      </div>
+    ))
+    const focused = () => app.renderer.getElement(app.renderer.getFocusedElementId()!)?.testId
+    const steps: string[] = []
+    app.renderer.simulateKeystrokes("enter")
+    steps.push(`open: ${focused()}`)
+    app.renderer.simulateKeystrokes("escape")
+    steps.push(`close: ${focused()}`)
+    expect(steps).toEqual(["open: field", "close: launcher"])
   })
 })

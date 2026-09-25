@@ -467,13 +467,10 @@ impl TestGpuixRenderer {
             let view = view.clone();
 
             cx.update_window(window, |_, window, app| {
-                view.update(app, |view, cx| {
-                    view.reveal_virtual_list_ancestor(id);
-                    if let Some(handle) = view.focus_handles.get(&id) {
-                        handle.focus(window, cx);
-                    }
-                    cx.notify();
-                });
+                // Same path as the live renderer: an element whose focus
+                // handle does not exist yet (Solid applies its mutations in
+                // a microtask) takes focus when its handle is created.
+                view.update(app, |view, cx| view.request_focus(id, window, cx));
             })
             .map_err(|e| Error::from_reason(e.to_string()))?;
 

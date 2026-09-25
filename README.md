@@ -2227,11 +2227,29 @@ import * as Dialog from '@gpuix/react/dialog'
 | `Trigger` | Tab stop. Click, Enter, or Space opens |
 | `Portal` | Full-window deferred layer. Paints over `<virtual-list>`. Centers its children by default. Modal: blocks clicks and the wheel behind it |
 | `Backdrop` | Press closes the dialog |
-| `Popup` | Takes focus on open. Modal: Tab and Shift+Tab stay inside. Close gives focus back to the trigger |
+| `Popup` | Moves focus in on open and out on close. Modal: Tab and Shift+Tab stay inside |
 | `Close` | Tab stop. Click, Enter, or Space closes |
 
-The Popup focuses **itself**, so the first Tab enters it. To focus a field
-instead, pass `autoFocus={false}` to the Popup and `autoFocus` to the field.
+`initialFocus` and `finalFocus` on the Popup choose where focus goes, like
+Base UI:
+
+```tsx
+<Dialog.Popup initialFocus={searchRef} finalFocus={composerRef}>
+```
+
+| Value | `initialFocus` (open) | `finalFocus` (close) |
+|---|---|---|
+| unset / `true` | The popup itself, so the first Tab enters it | The trigger, else the element focused when the popup opened |
+| ref or element | That element | That element |
+| `false` | Focus stays | Focus stays |
+| function | Returns one of the above. `null` means the default | Same |
+
+The default for `initialFocus` differs from Base UI, which picks the first
+tabbable element. GPUI's tab order exists only after the popup has painted,
+so GPUIX focuses the popup and lets the first Tab walk that order.
+
+A dialog opened from app state, with no `Trigger`, still returns focus: the
+Popup records the focused element when it opens.
 
 A Select or Tooltip inside the Popup opens above it, and Escape closes it first.
 

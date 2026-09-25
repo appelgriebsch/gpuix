@@ -10,7 +10,8 @@ import React, {
 } from "react"
 import type { ReactElement, ReactNode } from "react"
 import type { EventPayload } from "@gpuix/native"
-import type { KeyEvent, Props, PublicInstance } from "../types/host.js"
+import { resolveFocusTarget } from "@gpuix/native/host"
+import type { FocusTarget, KeyEvent, Props, PublicInstance } from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
 import { useWindowSize } from "../hooks/use-window-size.js"
 import {
@@ -26,8 +27,6 @@ interface DialogContextValue {
   disablePointerDismissal: boolean
   setOpen: (open: boolean) => void
   triggerRef: React.MutableRefObject<PublicInstance | null>
-  /** Focused element when the dialog opened, for a dialog without a trigger. */
-  returnFocusRef: React.MutableRefObject<number | null>
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null)
@@ -62,25 +61,18 @@ export function Dialog({
   modal = true,
   disablePointerDismissal = false,
 }: DialogProps): ReactElement {
-  const { renderer } = useGpuix()
-  const [open, setOpenState] = useControllableState({
+  const [open, setOpen] = useControllableState({
     value: openProp,
     defaultValue: defaultOpen,
     onChange: onOpenChange,
   })
   const triggerRef = useRef<PublicInstance | null>(null)
-  const returnFocusRef = useRef<number | null>(null)
-  const setOpen = (next: boolean) => {
-    if (next && !open) returnFocusRef.current = renderer?.getFocusedElementId?.() ?? null
-    setOpenState(next)
-  }
   const context: DialogContextValue = {
     open,
     modal,
     disablePointerDismissal,
     setOpen,
     triggerRef,
-    returnFocusRef,
   }
   return <DialogContext.Provider value={context}>{children}</DialogContext.Provider>
 }
@@ -187,29 +179,43 @@ export const DialogBackdrop = forwardRef<PublicInstance, DialogBackdropProps>(
   }
 )
 
-export interface DialogPopupProps extends Props {}
+export interface DialogPopupProps extends Props {
+  /** Focus on open. Default: the popup itself, so the first Tab enters it. */
+  initialFocus?: FocusTarget<PublicInstance>
+  /** Focus on close. Default: the trigger, else the element focused before open. */
+  finalFocus?: FocusTarget<PublicInstance>
+}
 
-/**
- * The dialog surface. Focuses itself on open, so the first Tab enters it, and
- * gives focus back to the trigger (or the element focused before) on close.
- * Pass `autoFocus={false}` and put `autoFocus` on a child to focus that instead.
- */
+/** The dialog surface. Moves focus in on open and back out on close. */
 export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
   function DialogPopup(
-    { style, onKeyDown, autoFocus = true, tabIndex = -1, role = "dialog", ...props },
+    { style, onKeyDown, initialFocus, finalFocus, tabIndex = -1, role = "dialog", ...props },
     forwardedRef
   ) {
     const context = useDialogContext("DialogPopup")
     const { renderer } = useGpuix()
     const popupRef = useRef<PublicInstance | null>(null)
-    const { triggerRef, returnFocusRef } = context
+    const focusTargets = useRef({ initialFocus, finalFocus })
+    focusTargets.current = { initialFocus, finalFocus }
+    const { triggerRef } = context
     useLayoutEffect(() => {
       if (!context.open || !renderer) return
+      // Read before moving focus, so a dialog opened from app state (no
+      // trigger) still knows where to return.
+      const previous = renderer.getFocusedElementId?.() ?? null
+      const initial = resolveFocusTarget(
+        focusTargets.current.initialFocus,
+        () => popupRef.current?.id ?? null
+      )
+      if (initial !== null) renderer.focusElement?.(initial)
       return () => {
-        const target = triggerRef.current?.id ?? returnFocusRef.current
-        if (target != null) renderer.focusElement?.(target)
+        const final = resolveFocusTarget(
+          focusTargets.current.finalFocus,
+          () => triggerRef.current?.id ?? previous
+        )
+        if (final !== null) renderer.focusElement?.(final)
       }
-    }, [context.open, renderer, triggerRef, returnFocusRef])
+    }, [context.open, renderer, triggerRef])
     if (!context.open) return null
     return (
       <DismissableLayer onEscapeKeyDown={() => context.setOpen(false)}>
@@ -220,7 +226,6 @@ export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
             setRefs(value, forwardedRef)
           }}
           role={role}
-          autoFocus={autoFocus}
           tabIndex={tabIndex}
           // A press inside the popup must never reach the backdrop behind it.
           style={{ pointerEvents: "auto", ...style }}

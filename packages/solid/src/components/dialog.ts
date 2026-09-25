@@ -5,12 +5,15 @@ import {
   createContext,
   createSignal,
   onCleanup,
+  onMount,
   Show,
+  splitProps,
   useContext,
   type JSX,
 } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps, KeyEvent } from "@gpuix/native/host"
+import { resolveFocusTarget } from "@gpuix/native/host"
+import type { FocusTarget, HostProps, KeyEvent } from "@gpuix/native/host"
 import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { createWindowSize } from "../primitives.js"
@@ -23,8 +26,6 @@ interface DialogState {
   setOpen(open: boolean): void
   pointerDismissal(): boolean
   trigger: { current: HostElement | null }
-  /** Focused element when the dialog opened, for a dialog without a trigger. */
-  returnFocus: { current: number | null }
 }
 
 const DialogContext = createContext<DialogState>()
@@ -51,7 +52,6 @@ export interface DialogProps {
 }
 
 export function Dialog(props: DialogProps): JSX.Element {
-  const renderer = useGpuixRequired()
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const open = () => props.open === undefined ? internalOpen() : props.open
   const state: DialogState = {
@@ -59,11 +59,9 @@ export function Dialog(props: DialogProps): JSX.Element {
     modal: () => props.modal ?? true,
     pointerDismissal: () => !props.disablePointerDismissal,
     trigger: { current: null },
-    returnFocus: { current: null },
     setOpen(next) {
       const previous = open()
       if (previous === next) return
-      if (next) state.returnFocus.current = renderer.getFocusedElementId?.() ?? null
       if (props.open === undefined) setInternalOpen(next)
       props.onOpenChange?.(next)
     },
@@ -171,14 +169,15 @@ export function DialogBackdrop(props: DialogBackdropProps): JSX.Element {
 export interface DialogPopupProps extends HostProps {
   children?: JSX.Element
   ref?: (element: HostElement) => void
+  /** Focus on open. Default: the popup itself, so the first Tab enters it. */
+  initialFocus?: FocusTarget<HostElement>
+  /** Focus on close. Default: the trigger, else the element focused before open. */
+  finalFocus?: FocusTarget<HostElement>
 }
 
-/**
- * The dialog surface. Focuses itself on open, so the first Tab enters it, and
- * gives focus back to the trigger (or the element focused before) on close.
- * Pass `autoFocus={false}` and put `autoFocus` on a child to focus that instead.
- */
-export function DialogPopup(props: DialogPopupProps): JSX.Element {
+/** The dialog surface. Moves focus in on open and back out on close. */
+export function DialogPopup(allProps: DialogPopupProps): JSX.Element {
+  const [focus, props] = splitProps(allProps, ["initialFocus", "finalFocus"])
   const state = context("DialogPopup")
   const renderer = useGpuixRequired()
   let popup: HostElement | null = null
@@ -186,9 +185,19 @@ export function DialogPopup(props: DialogPopupProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
+      // Read before moving focus, so a dialog opened from app state (no
+      // trigger) still knows where to return. The popup is not built yet.
+      const previous = renderer.getFocusedElementId?.() ?? null
+      onMount(() => {
+        const initial = resolveFocusTarget(focus.initialFocus, () => popup?.id ?? null)
+        if (initial !== null) renderer.focusElement?.(initial)
+      })
       onCleanup(() => {
-        const target = state.trigger.current?.id ?? state.returnFocus.current
-        if (target != null) renderer.focusElement?.(target)
+        const final = resolveFocusTarget(
+          focus.finalFocus,
+          () => state.trigger.current?.id ?? previous
+        )
+        if (final !== null) renderer.focusElement?.(final)
       })
       return createComponent(DismissableLayer, {
         onEscapeKeyDown: () => state.setOpen(false),
@@ -200,7 +209,6 @@ export function DialogPopup(props: DialogPopupProps): JSX.Element {
               props.ref?.(element)
             },
             get role() { return props.role ?? "dialog" },
-            get autoFocus() { return props.autoFocus ?? true },
             get tabIndex() { return props.tabIndex ?? -1 },
             // A press inside the popup must never reach the backdrop behind it.
             get style() { return { pointerEvents: "auto", ...props.style } },

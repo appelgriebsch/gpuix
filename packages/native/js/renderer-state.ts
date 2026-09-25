@@ -251,3 +251,36 @@ export function unregisterEventHandlers(
 ): void {
   eventHandlers.delete(elementId)
 }
+
+/** Anything a framework hands out for a mounted host element. */
+export interface FocusableNode {
+  readonly id: number
+}
+
+/**
+ * Where an overlay moves focus when it opens or closes, like Base UI's
+ * `initialFocus` / `finalFocus`:
+ *
+ * - `true` or unset: the overlay's default target
+ * - `false`: focus does not move
+ * - an element or a ref to one: that element
+ * - a function: returns one of the above; `null` means the default
+ */
+export type FocusTarget<Node extends FocusableNode = FocusableNode> =
+  | boolean
+  | Node
+  | { readonly current: Node | null }
+  | (() => Node | boolean | null | undefined)
+
+/** Resolve a `FocusTarget` to an element id, or null when focus must stay. */
+export function resolveFocusTarget<Node extends FocusableNode>(
+  target: FocusTarget<Node> | undefined,
+  fallback: () => number | null
+): number | null {
+  const value = typeof target === "function" ? target() : target
+  if (value === undefined && typeof target === "function") return null
+  if (value === undefined || value === null || value === true) return fallback()
+  if (value === false) return null
+  if ("current" in value) return value.current?.id ?? fallback()
+  return value.id
+}

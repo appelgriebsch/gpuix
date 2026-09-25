@@ -129,6 +129,7 @@ export type {
   HighlightSpec,
   ImgInstance,
   ImgProps,
+  FocusTarget,
   InputProps,
   KeyEvent,
   LinearGradientBackground,

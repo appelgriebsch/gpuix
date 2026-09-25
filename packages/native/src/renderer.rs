@@ -4431,7 +4431,7 @@ impl VirtualListEntry {
 }
 
 impl GpuixView {
-    fn request_focus(&mut self, id: u64, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
+    pub(crate) fn request_focus(&mut self, id: u64, window: &mut gpui::Window, cx: &mut gpui::Context<Self>) {
         self.reveal_virtual_list_ancestor(id);
         if let Some(handle) = self.focus_handles.get(&id) {
             self.pending_focus_element = None;
@@ -4653,10 +4653,15 @@ impl GpuixView {
             }
         }
 
-        if let Some(id) = self.pending_focus_element.take() {
-            if let Some(handle) = self.focus_handles.get(&id) {
-                handle.focus(window, cx);
-            }
+        // Keep the request until the handle exists. A frame can render before
+        // the batch that creates the element arrives (Solid flushes in a
+        // microtask, Windows and Linux render on their own thread).
+        if let Some(handle) = self
+            .pending_focus_element
+            .and_then(|id| self.focus_handles.get(&id).cloned())
+        {
+            handle.focus(window, cx);
+            self.pending_focus_element = None;
         }
 
         self.focus_subscriptions.retain(|(id, event), _| {
