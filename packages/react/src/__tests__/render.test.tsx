@@ -419,6 +419,31 @@ describeNative("render()", () => {
     `)
   })
 
+  it("moves focus backwards out of a textarea with Shift+Tab", () => {
+    // The editor tracks its focus handle on a wrapper and on the text
+    // element inside it; that must still be one tab stop.
+    render(
+      <div style={{ display: "flex", width: 300, height: 100 }}>
+        <div tabIndex={0} testId="before" style={{ width: 40, height: 20 }} />
+        <textarea autoFocus testId="field" style={{ width: 120, height: 40 }} />
+        <div tabIndex={0} testId="after" style={{ width: 40, height: 20 }} />
+      </div>,
+      { renderer }
+    )
+    renderer.flush()
+    const focused = () => renderer.getElement(renderer.getFocusedElementId()!)?.testId
+    const steps = [focused()]
+    renderer.simulateKeystrokes("shift-tab")
+    steps.push(focused())
+    renderer.simulateKeystrokes("tab")
+    steps.push(focused())
+    renderer.simulateKeystrokes("tab")
+    steps.push(focused())
+    renderer.simulateKeystrokes("shift-tab")
+    steps.push(focused())
+    expect(steps).toEqual(["field", "before", "field", "after", "field"])
+  })
+
   it("leaves Tab alone when tabNavigation is false", () => {
     render(
       <div style={{ width: 200, height: 100 }}>
