@@ -218,15 +218,13 @@ export interface StyleDesc {
   // Nesting is one level deep: a state style cannot contain another.
   hover?: StateStyleDesc
   active?: StateStyleDesc
-  /** While the element has focus, from any input. Needs a focusable element
-   *  (`tabIndex`, a key or focus listener, `<input>`, `<textarea>`). */
-  focus?: StateStyleDesc
-  /** While focused after keyboard input, like CSS `:focus-visible`. Replaces
-   *  the default focus ring. */
+  /** CSS `:focus-visible`: a focused control after keyboard input, or a
+   *  focused `<input>` / `<textarea>` after any input. Needs a focusable
+   *  element. Replaces the default focus ring. */
   focusVisible?: StateStyleDesc
 }
 
-export type StateStyleDesc = Omit<StyleDesc, "hover" | "active" | "focus" | "focusVisible">
+export type StateStyleDesc = Omit<StyleDesc, "hover" | "active" | "focusVisible">
 
 // Element types supported by GPUIX
 export type ElementType =

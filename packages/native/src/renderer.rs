@@ -4093,19 +4093,39 @@ fn focus_ring(color: gpui::Hsla) -> Option<gpui::Outline> {
     })
 }
 
-/// A browser draws a focus ring on every focusable element; GPUIX does the
-/// same, so keyboard focus is never invisible. Only elements that track a
-/// focus handle get it, and a style's own `focusVisible` replaces it.
-pub(crate) fn apply_default_focus_ring<E: gpui::InteractiveElement>(
+/// Which GPUI focus refinement implements CSS `:focus-visible` for an element.
+#[derive(Clone, Copy)]
+pub(crate) enum FocusVisibleRule {
+    /// Buttons and other controls: only after keyboard input
+    /// (`window.last_input_was_keyboard()`), so a click shows no ring.
+    Keyboard,
+    /// Text fields: whenever focused. A browser matches `:focus-visible` on a
+    /// clicked `<input>` too, because a field in use must look active.
+    Always,
+}
+
+/// The element's `focusVisible` style, or the inherited default ring when it
+/// declares none, like a browser. Call it right after `track_focus`: gpui
+/// applies focus refinements only to an element that tracks a focus handle.
+pub(crate) fn apply_focus_visible<E: gpui::InteractiveElement>(
     el: E,
     style: Option<&StyleDesc>,
     ring: Option<gpui::Outline>,
+    rule: FocusVisibleRule,
 ) -> E {
-    match ring {
-        Some(ring) if style.is_none_or(|style| style.focus_visible.is_none()) => {
-            el.focus_visible(move |refinement| gpui::Styled::outline(refinement, ring))
-        }
-        _ => el,
+    let declared = style.and_then(|style| style.focus_visible.as_deref());
+    if declared.is_none() && ring.is_none() {
+        return el;
+    }
+    // gpui runs the refinement eagerly, so borrowing the style is fine.
+    let refine = |refinement: gpui::StyleRefinement| match (declared, ring) {
+        (Some(declared), _) => apply_styles(refinement, declared),
+        (None, Some(ring)) => gpui::Styled::outline(refinement, ring),
+        (None, None) => refinement,
+    };
+    match rule {
+        FocusVisibleRule::Keyboard => el.focus_visible(refine),
+        FocusVisibleRule::Always => el.focus(refine),
     }
 }
 
@@ -5305,7 +5325,12 @@ pub(crate) fn build_host_container(
 
     if let Some(handle) = ctx.focus_handles.get(&element.id) {
         el = el.track_focus(handle);
-        el = apply_default_focus_ring(el, style, ctx.inherited.focus_ring);
+        el = apply_focus_visible(
+            el,
+            style,
+            ctx.inherited.focus_ring,
+            FocusVisibleRule::Keyboard,
+        );
     }
     if let Some(tab_index) = element
         .custom_props
@@ -5633,7 +5658,7 @@ pub(crate) fn apply_height<E: gpui::Styled>(el: E, dim: &crate::style::Dimension
     }
 }
 
-/// Base styles plus gpui's `hover`, `active`, `focus` and `focus_visible` refinements.
+/// Base styles plus gpui's `hover` and `active` refinements.
 ///
 /// Every stateful GPUI root must go through this, never `apply_styles` alone.
 /// `StyleDesc` carries `hover` and `active` for every element type, so a custom
@@ -5651,13 +5676,8 @@ where
     if let Some(active_style) = style.active.as_deref() {
         el = el.active(|refinement| apply_styles(refinement, active_style));
     }
-    // gpui applies these only to an element that called track_focus.
-    if let Some(focus_style) = style.focus.as_deref() {
-        el = el.focus(|refinement| apply_styles(refinement, focus_style));
-    }
-    if let Some(focus_visible_style) = style.focus_visible.as_deref() {
-        el = el.focus_visible(|refinement| apply_styles(refinement, focus_visible_style));
-    }
+    // `focusVisible` needs the focus handle, so `apply_focus_visible` applies
+    // it where the element calls track_focus.
     el
 }
 

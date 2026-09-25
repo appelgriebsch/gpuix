@@ -3160,13 +3160,17 @@ wrapping `<div>`.
 
 ### Focus styles
 
-`focus` and `focusVisible` are nested style objects too, like `hover`. GPUI
-applies them natively.
+`focusVisible` is a nested style object, like `hover`. It follows CSS
+`:focus-visible`, and GPUI applies it natively:
 
-| Key | Applies while |
-|---|---|
-| `focus` | The element has focus, from any input |
-| `focusVisible` | It has focus and the last input was the keyboard, like CSS `:focus-visible` |
+| Element | After a mouse press | After Tab |
+|---|---|---|
+| `<input>`, `<textarea>` | applies | applies |
+| Everything else (`Button`, `tabIndex` div) | no | applies |
+
+A text field in use must look active however it got focus. A button that was
+just clicked needs no ring. So one key covers both, and there is no separate
+`focus` key.
 
 ```tsx
 <div
@@ -3179,11 +3183,12 @@ applies them natively.
 />
 ```
 
-They need a **focusable** element: `tabIndex`, a key or focus listener,
+It needs a **focusable** element: `tabIndex`, a key or focus listener,
 `<input>`, `<textarea>`, or a primitive such as `Button`.
 
 **Default ring.** Every focusable element gets a 2px `focusVisible` ring in the
-theme accent, like a browser. A press with the mouse shows no ring, Tab does.
+theme accent, like a browser, with the same rule: a pressed button shows no
+ring, a clicked text field does.
 The element's own `focusVisible` replaces it. `Select.Content` and
 `Dialog.Popup` pass `focusVisible: {}`: they take focus only to receive keys,
 so they draw no ring of their own. Change the colour for a subtree

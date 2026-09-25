@@ -1770,12 +1770,15 @@ describeNative("motion", () => {
 describeNative("focus styles", () => {
   // One renderer per scene, so each capture is the frame after the input
   // that decided focus-visible (a keyboard Tab or a mouse press).
-  function scene({ ringColor, focusVisible }: { ringColor?: string; focusVisible?: object } = {}) {
+  function scene({ ringColor, focusVisible, field }: { ringColor?: string; focusVisible?: object; field?: boolean } = {}) {
     const root = createTestRoot({ width: 240, height: 120 })
+    const targetStyle = { width: 80, height: 40, borderRadius: 8, backgroundColor: "#303030", focusVisible }
     root.render(
       <div style={{ display: "flex", gap: 24, padding: 32, width: "100%", height: "100%", backgroundColor: "#101010", focusRingColor: ringColor }}>
         <div autoFocus tabIndex={0} testId="start" style={{ width: 1, height: 1 }} />
-        <div tabIndex={0} testId="target" style={{ width: 80, height: 40, borderRadius: 8, backgroundColor: "#303030", focusVisible }} />
+        {field
+          ? <input testId="target" style={targetStyle} />
+          : <div tabIndex={0} testId="target" style={targetStyle} />}
       </div>
     )
     return root.renderer
@@ -1800,14 +1803,19 @@ describeNative("focus styles", () => {
     return { png: shot(renderer, name), bounds: target(renderer), focused }
   }
 
-  it("draws the default ring on keyboard focus only, without moving layout", () => {
+  it("draws the default ring like :focus-visible, without moving layout", () => {
     const idle = run("idle", "none")
     const keyboard = run("keyboard", "tab")
     const mouse = run("mouse", "click")
     const off = run("ring-off", "tab", { ringColor: "transparent" })
     const custom = run("custom", "tab", { focusVisible: { backgroundColor: "#2563eb" } })
 
-    expect([keyboard.focused, mouse.focused, off.focused]).toEqual(["target", "target", "target"])
+    // A text field shows focusVisible after a mouse press too, like a browser.
+    const fieldIdle = run("field-idle", "none", { field: true })
+    const fieldMouse = run("field-mouse", "click", { field: true })
+
+    expect([keyboard.focused, mouse.focused, off.focused, fieldMouse.focused])
+      .toEqual(["target", "target", "target", "target"])
     expect(keyboard.bounds).toEqual(idle.bounds)
     expect(mouse.png.equals(idle.png)).toBe(true)
     expect(off.png.equals(idle.png)).toBe(true)
@@ -1815,6 +1823,7 @@ describeNative("focus styles", () => {
       expect(keyboard.png.equals(idle.png)).toBe(false)
       expect(custom.png.equals(keyboard.png)).toBe(false)
       expect(custom.png.equals(idle.png)).toBe(false)
+      expect(fieldMouse.png.equals(fieldIdle.png)).toBe(false)
     }
   })
 })
