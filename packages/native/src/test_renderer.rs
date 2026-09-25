@@ -264,8 +264,13 @@ impl TestGpuixRenderer {
         // Visual tests have no VoiceOver / UIA client, so AccessKit never
         // activates. Pretend one is connected so every flush builds a tree
         // that get_a11y_tree can dump.
-        cx.update_window(window, |_, window, _| {
+        //
+        // The offscreen window is also never key. GPUI reports focus paths
+        // only for an active window, so without this onFocus / onBlur never
+        // fire in tests. Real activation would take the user's keyboard.
+        cx.update_window(window, |_, window, cx| {
             window.set_a11y_active_for_tests(true);
+            window.set_active_for_tests(true, cx);
         })
         .map_err(|e| Error::from_reason(e.to_string()))?;
         cx.run_until_parked();

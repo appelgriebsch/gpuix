@@ -79,7 +79,8 @@ export {
   DialogTitle,
   DialogTrigger,
 } from "./components/dialog.js"
-export { useDismissLayer } from "./components/floating.js"
+export { DismissableLayer } from "./components/floating.js"
+export type { DismissableLayerProps } from "./components/floating.js"
 export type {
   DialogBackdropProps,
   DialogCloseProps,

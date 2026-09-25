@@ -15,7 +15,7 @@ import {
   floatingRootStyle,
   renderSlot,
   useControllableState,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 import type { FloatingContentProps } from "./floating.js"
 
@@ -226,26 +226,27 @@ export const TooltipContent = forwardRef<PublicInstance, TooltipContentProps>(
     ref
   ) {
     const context = useTooltipContext("TooltipContent")
-    useDismissLayer(context.open, context.close)
     if (!context.open) return null
     return (
-      <FloatingLayer
-        {...props}
-        ref={ref}
-        side={side}
-        align={align}
-        sideOffset={sideOffset}
-        onMouseEnter={(event) => {
-          onMouseEnter?.(event)
-          if (!context.disableHoverableContent) context.cancelClose()
-        }}
-        onMouseLeave={(event) => {
-          onMouseLeave?.(event)
-          context.scheduleClose()
-        }}
-      >
-        {children}
-      </FloatingLayer>
+      <DismissableLayer onEscapeKeyDown={context.close}>
+        <FloatingLayer
+          {...props}
+          ref={ref}
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          onMouseEnter={(event) => {
+            onMouseEnter?.(event)
+            if (!context.disableHoverableContent) context.cancelClose()
+          }}
+          onMouseLeave={(event) => {
+            onMouseLeave?.(event)
+            context.scheduleClose()
+          }}
+        >
+          {children}
+        </FloatingLayer>
+      </DismissableLayer>
     )
   }
 )

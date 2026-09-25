@@ -15,7 +15,7 @@ import {
   floatingRootStyle,
   renderSlot,
   type FloatingContentProps,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 
 interface ProviderState {
@@ -150,18 +150,22 @@ export function TooltipContent(props: TooltipContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      useDismissLayer(state.close)
-      return FloatingLayer({
-        ...props,
-        side: props.side ?? "top",
-        align: props.align ?? "center",
-        onMouseEnter(event) {
-          props.onMouseEnter?.(event)
-          if (state.hoverable) state.cancelClose()
-        },
-        onMouseLeave(event) {
-          props.onMouseLeave?.(event)
-          state.scheduleClose()
+      return createComponent(DismissableLayer, {
+        onEscapeKeyDown: state.close,
+        get children() {
+          return FloatingLayer({
+            ...props,
+            side: props.side ?? "top",
+            align: props.align ?? "center",
+            onMouseEnter(event) {
+              props.onMouseEnter?.(event)
+              if (state.hoverable) state.cancelClose()
+            },
+            onMouseLeave(event) {
+              props.onMouseLeave?.(event)
+              state.scheduleClose()
+            },
+          })
         },
       })
     },

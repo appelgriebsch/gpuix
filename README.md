@@ -2121,8 +2121,9 @@ object:
 </TooltipPrimitive.Provider>
 ```
 
-Combobox uses the native input for text editing, IME, clipboard, and focus. Tab
-in the input closes the popup and moves focus on. Combobox and Tooltip triggers
+Combobox uses the native input for text editing, IME, clipboard, and focus.
+Focus leaving the input closes the popup, so a Tab that moves focus closes it and
+a prevented Tab keeps it open. Combobox and Tooltip triggers
 are tab stops like the Select trigger. Tooltip `asChild` preserves the child ref
 and merges trigger behavior into that host element. The child's own handlers
 run first. All floating content uses GPUI's deferred `anchored()` layer,
@@ -2249,17 +2250,22 @@ open:
 />
 ```
 
-A custom overlay joins the same stack with `useDismissLayer`:
+A custom overlay joins the same stack with `DismissableLayer`. Mount it only
+while the overlay is open:
 
 ```tsx
-import { useDismissLayer } from '@gpuix/react'
+import { DismissableLayer } from '@gpuix/react' // or '@gpuix/solid'
 
-useDismissLayer(open, () => setOpen(false))
+{open && (
+  <DismissableLayer onEscapeKeyDown={() => setOpen(false)}>
+    <anchored deferred>{/* overlay */}</anchored>
+  </DismissableLayer>
+)}
 ```
 
-Solid calls `useDismissLayer(onEscape)` inside the branch that exists only
-while open. Framework-free code uses `pushDismissLayer(renderer, layer)`, which
-returns the function that removes the layer.
+A layer mounted inside another is always above it, even when both open in the
+same commit. Framework-free code uses `pushDismissLayer(renderer, layer)` with a
+`parent` field, and calls the returned function when the layer closes.
 
 ### Trap Tab inside a custom panel
 

@@ -20,7 +20,7 @@ import {
   resolveStyle,
   type FloatingContentProps,
   type StateStyle,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 
 export interface SelectItemData {
@@ -197,27 +197,31 @@ export function SelectContent(props: SelectContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      useDismissLayer((event) => {
-        props.onEscapeKeyDown?.(event)
-        state.setOpen(false)
-      })
-      return FloatingLayer({
-        ...props,
-        autoFocus: true,
-        tabIndex: props.tabIndex ?? -1,
-        onMouseDownOutside(event) {
-          props.onMouseDownOutside?.(event)
-          state.setOpen(false, false)
+      return createComponent(DismissableLayer, {
+        onEscapeKeyDown(event) {
+          props.onEscapeKeyDown?.(event)
+          state.setOpen(false)
         },
-        onKeyDown(event) {
-          props.onKeyDown?.(event)
-          // The popup is modal, like Base UI: Tab stays inside until it closes.
-          if (event.key === "tab") event.preventDefault()
-          else if (event.key === "down") state.move(1)
-          else if (event.key === "up") state.move(-1)
-          else if ((event.key === "enter" || event.key === "space") && state.active()) {
-            state.select(state.active()!)
-          }
+        get children() {
+          return FloatingLayer({
+            ...props,
+            autoFocus: true,
+            tabIndex: props.tabIndex ?? -1,
+            onMouseDownOutside(event) {
+              props.onMouseDownOutside?.(event)
+              state.setOpen(false, false)
+            },
+            onKeyDown(event) {
+              props.onKeyDown?.(event)
+              // The popup is modal, like Base UI: Tab stays inside until it closes.
+              if (event.key === "tab") event.preventDefault()
+              else if (event.key === "down") state.move(1)
+              else if (event.key === "up") state.move(-1)
+              else if ((event.key === "enter" || event.key === "space") && state.active()) {
+                state.select(state.active()!)
+              }
+            },
+          })
         },
       })
     },

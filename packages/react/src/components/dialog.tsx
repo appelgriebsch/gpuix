@@ -17,7 +17,7 @@ import {
   renderSlot,
   setRefs,
   useControllableState,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 
 interface DialogContextValue {
@@ -202,7 +202,6 @@ export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
     const context = useDialogContext("DialogPopup")
     const { renderer } = useGpuix()
     const popupRef = useRef<PublicInstance | null>(null)
-    useDismissLayer(context.open, () => context.setOpen(false))
     const { triggerRef, returnFocusRef } = context
     useLayoutEffect(() => {
       if (!context.open || !renderer) return
@@ -213,27 +212,29 @@ export const DialogPopup = forwardRef<PublicInstance, DialogPopupProps>(
     }, [context.open, renderer, triggerRef, returnFocusRef])
     if (!context.open) return null
     return (
-      <div
-        {...props}
-        ref={(value: PublicInstance | null) => {
-          popupRef.current = value
-          setRefs(value, forwardedRef)
-        }}
-        role={role}
-        autoFocus={autoFocus}
-        tabIndex={tabIndex}
-        // A press inside the popup must never reach the backdrop behind it.
-        style={{ pointerEvents: "auto", ...style }}
-        onKeyDown={(event: KeyEvent) => {
-          onKeyDown?.(event)
-          if (!context.modal || event.key !== "tab" || event.defaultPrevented) return
-          const popup = popupRef.current
-          if (!popup) return
-          event.preventDefault()
-          if (event.modifiers?.shift) renderer?.focusPreviousWithin?.(popup.id)
-          else renderer?.focusNextWithin?.(popup.id)
-        }}
-      />
+      <DismissableLayer onEscapeKeyDown={() => context.setOpen(false)}>
+        <div
+          {...props}
+          ref={(value: PublicInstance | null) => {
+            popupRef.current = value
+            setRefs(value, forwardedRef)
+          }}
+          role={role}
+          autoFocus={autoFocus}
+          tabIndex={tabIndex}
+          // A press inside the popup must never reach the backdrop behind it.
+          style={{ pointerEvents: "auto", ...style }}
+          onKeyDown={(event: KeyEvent) => {
+            onKeyDown?.(event)
+            if (!context.modal || event.key !== "tab" || event.defaultPrevented) return
+            const popup = popupRef.current
+            if (!popup) return
+            event.preventDefault()
+            if (event.modifiers?.shift) renderer?.focusPreviousWithin?.(popup.id)
+            else renderer?.focusNextWithin?.(popup.id)
+          }}
+        />
+      </DismissableLayer>
     )
   }
 )

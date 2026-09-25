@@ -21,7 +21,7 @@ import {
   resolveStyle,
   setRefs,
   useControllableState,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 import type { FloatingContentProps, StateStyle } from "./floating.js"
 
@@ -285,44 +285,47 @@ export const SelectContent = forwardRef<PublicInstance, SelectContentProps>(
     forwardedRef
   ) {
     const context = useSelectContext("SelectContent")
-    useDismissLayer(context.open, (event) => {
-      onEscapeKeyDown?.(event)
-      context.setOpen(false)
-    })
     if (!context.open) return null
     return (
-      <FloatingLayer
-        {...props}
-        ref={forwardedRef}
-        tabIndex={tabIndex}
-        autoFocus
-        onMouseDownOutside={(event) => {
-          onMouseDownOutside?.(event)
-          context.dismissedByOutsidePress.current = true
-          queueMicrotask(() => {
-            context.dismissedByOutsidePress.current = false
-          })
-          context.setOpen(false, false)
-        }}
-        onKeyDown={(event: KeyEvent) => {
-          onKeyDown?.(event)
-          // The popup is modal, like Base UI: Tab stays inside until it closes.
-          if (event.key === "tab") {
-            event.preventDefault()
-            return
-          }
-          if (context.disabled) return
-          if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
-            context.moveActive(1)
-          } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
-            context.moveActive(-1)
-          } else if ((event.key === "enter" || event.key === "space") && context.activeValue) {
-            context.selectValue(context.activeValue)
-          }
+      <DismissableLayer
+        onEscapeKeyDown={(event) => {
+          onEscapeKeyDown?.(event)
+          context.setOpen(false)
         }}
       >
-        {children}
-      </FloatingLayer>
+        <FloatingLayer
+          {...props}
+          ref={forwardedRef}
+          tabIndex={tabIndex}
+          autoFocus
+          onMouseDownOutside={(event) => {
+            onMouseDownOutside?.(event)
+            context.dismissedByOutsidePress.current = true
+            queueMicrotask(() => {
+              context.dismissedByOutsidePress.current = false
+            })
+            context.setOpen(false, false)
+          }}
+          onKeyDown={(event: KeyEvent) => {
+            onKeyDown?.(event)
+            // The popup is modal, like Base UI: Tab stays inside until it closes.
+            if (event.key === "tab") {
+              event.preventDefault()
+              return
+            }
+            if (context.disabled) return
+            if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+              context.moveActive(1)
+            } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
+              context.moveActive(-1)
+            } else if ((event.key === "enter" || event.key === "space") && context.activeValue) {
+              context.selectValue(context.activeValue)
+            }
+          }}
+        >
+          {children}
+        </FloatingLayer>
+      </DismissableLayer>
     )
   }
 )

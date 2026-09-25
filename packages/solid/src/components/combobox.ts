@@ -20,7 +20,7 @@ import {
   resolveStyle,
   type FloatingContentProps,
   type StateStyle,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 
 export type ComboboxValue = string | string[] | null
@@ -187,6 +187,12 @@ export function ComboboxInput(props: ComboboxInputProps): JSX.Element {
       props.onFocus?.(event)
       if (!disabled()) state.setOpen(true)
     },
+    // Focus leaving the input closes the popup, like Base UI. Tab moves focus
+    // only when no handler prevented it, so a kept Tab keeps it open.
+    onBlur(event: EventPayload) {
+      props.onBlur?.(event)
+      state.setOpen(false)
+    },
     onChange(event: EventPayload) {
       props.onChange?.(event)
       state.setInput(event.value ?? "")
@@ -194,9 +200,7 @@ export function ComboboxInput(props: ComboboxInputProps): JSX.Element {
     },
     onKeyDown(event: KeyEvent) {
       props.onKeyDown?.(event)
-      // Tab keeps its default and moves focus on, so the popup must close.
-      if (event.key === "tab") state.setOpen(false)
-      else if (event.key === "down") state.move(1)
+      if (event.key === "down") state.move(1)
       else if (event.key === "up") state.move(-1)
     },
     onSubmit(event: EventPayload) {
@@ -252,12 +256,16 @@ export function ComboboxContent(props: FloatingContentProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      useDismissLayer(() => state.setOpen(false))
-      return FloatingLayer({
-        ...props,
-        onMouseDownOutside(event) {
-          props.onMouseDownOutside?.(event)
-          state.setOpen(false)
+      return createComponent(DismissableLayer, {
+        onEscapeKeyDown: () => state.setOpen(false),
+        get children() {
+          return FloatingLayer({
+            ...props,
+            onMouseDownOutside(event) {
+              props.onMouseDownOutside?.(event)
+              state.setOpen(false)
+            },
+          })
         },
       })
     },

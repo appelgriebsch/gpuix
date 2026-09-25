@@ -15,7 +15,7 @@ import type { HostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
 import { createWindowSize } from "../primitives.js"
 import { useGpuixRequired } from "../root.js"
-import { renderSlot, useDismissLayer } from "./floating.js"
+import { DismissableLayer, renderSlot } from "./floating.js"
 
 interface DialogState {
   open(): boolean
@@ -186,28 +186,32 @@ export function DialogPopup(props: DialogPopupProps): JSX.Element {
     get when() { return state.open() },
     keyed: true,
     get children() {
-      useDismissLayer(() => state.setOpen(false))
       onCleanup(() => {
         const target = state.trigger.current?.id ?? state.returnFocus.current
         if (target != null) renderer.focusElement?.(target)
       })
-      return jsx("div", {
-        ...props,
-        ref(element: HostElement) {
-          popup = element
-          props.ref?.(element)
-        },
-        get role() { return props.role ?? "dialog" },
-        get autoFocus() { return props.autoFocus ?? true },
-        get tabIndex() { return props.tabIndex ?? -1 },
-        // A press inside the popup must never reach the backdrop behind it.
-        get style() { return { pointerEvents: "auto", ...props.style } },
-        onKeyDown(event: KeyEvent) {
-          props.onKeyDown?.(event)
-          if (!state.modal() || event.key !== "tab" || event.defaultPrevented || !popup) return
-          event.preventDefault()
-          if (event.modifiers?.shift) renderer.focusPreviousWithin?.(popup.id)
-          else renderer.focusNextWithin?.(popup.id)
+      return createComponent(DismissableLayer, {
+        onEscapeKeyDown: () => state.setOpen(false),
+        get children() {
+          return jsx("div", {
+            ...props,
+            ref(element: HostElement) {
+              popup = element
+              props.ref?.(element)
+            },
+            get role() { return props.role ?? "dialog" },
+            get autoFocus() { return props.autoFocus ?? true },
+            get tabIndex() { return props.tabIndex ?? -1 },
+            // A press inside the popup must never reach the backdrop behind it.
+            get style() { return { pointerEvents: "auto", ...props.style } },
+            onKeyDown(event: KeyEvent) {
+              props.onKeyDown?.(event)
+              if (!state.modal() || event.key !== "tab" || event.defaultPrevented || !popup) return
+              event.preventDefault()
+              if (event.modifiers?.shift) renderer.focusPreviousWithin?.(popup.id)
+              else renderer.focusNextWithin?.(popup.id)
+            },
+          })
         },
       })
     },

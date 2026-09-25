@@ -26,6 +26,6 @@ import * as Dialog from '@gpuix/react/dialog' // or '@gpuix/solid/dialog'
 - The popup takes focus on open, keeps Tab inside while modal, and gives focus back to the trigger on close
 - A press on `Backdrop` closes it, unless `disablePointerDismissal` is set
 
-Escape is now a default action on one layer stack per window. Every open Dialog, Select, Combobox, and Tooltip is a layer. Escape closes only the most recently opened one, so a Select inside a Dialog closes first. It works when nothing is focused, and `event.preventDefault()` in any `onKeyDown` keeps the layer open. Custom overlays join the stack with `useDismissLayer`, or `pushDismissLayer(renderer, layer)` without a framework.
+Escape is now a default action on one layer stack per window. Every open Dialog, Select, Combobox, and Tooltip is a layer. Escape closes only the most recently opened one, so a Select inside a Dialog closes first. It works when nothing is focused, and `event.preventDefault()` in any `onKeyDown` keeps the layer open. A layer mounted inside another stays above it, even when both open in one commit. Custom overlays join the stack with `<DismissableLayer onEscapeKeyDown>`, or `pushDismissLayer(renderer, layer)` without a framework.
 
 A raw `<anchored>` with an explicit `backgroundColor: "transparent"` now paints no fill. Without any fill in its style it still paints `#1A1A1A`.

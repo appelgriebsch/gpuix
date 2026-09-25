@@ -33,5 +33,5 @@ Headless controls follow Base UI focus rules:
 - `Select`, `Combobox`, and `Tooltip` triggers are tab stops, also with `asChild`. An explicit `tabIndex` on the part or on the child still wins
 - An open Select popup keeps Tab inside, like Base UI's modal popup
 - A press outside an open Select no longer pulls focus back to the trigger, so clicking into another input keeps focus there
-- Tab in a Combobox input closes the popup and moves focus on
+- A Combobox closes when focus leaves its input, so a prevented Tab keeps it open
 - Solid `asChild` now keeps the child's own event handlers and children

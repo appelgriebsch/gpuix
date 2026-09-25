@@ -142,7 +142,7 @@ describe.skipIf(!hasNativeTestRenderer)("Solid controls", () => {
       "enter: focus=content text=open|A|B|tip",
       "tab in popup: focus=content text=open|A|B|tip",
       "escape: focus=trigger text=open|tip",
-      "tab: focus=tip text=open|tip",
+      "tab: focus=tip text=open|tip|help",
       "click outside: focus=outside text=open|tip",
     ])
     // The child's own onKeyDown still runs after asChild merges the trigger's.

@@ -18,7 +18,7 @@ import {
   resolveStyle,
   setRefs,
   useControllableState,
-  useDismissLayer,
+  DismissableLayer,
 } from "./floating.js"
 import type { FloatingContentProps, StateStyle } from "./floating.js"
 
@@ -225,7 +225,7 @@ export interface ComboboxInputProps extends InputProps {
 
 export const ComboboxInput = forwardRef<PublicInstance, ComboboxInputProps>(
   function ComboboxInput(
-    { onChange, onClick, onFocus, onKeyDown, onKeyUp, onSubmit, disabled: disabledProp, ...props },
+    { onChange, onClick, onFocus, onBlur, onKeyDown, onKeyUp, onSubmit, disabled: disabledProp, ...props },
     forwardedRef
   ) {
     const context = useComboboxContext("ComboboxInput")
@@ -249,6 +249,12 @@ export const ComboboxInput = forwardRef<PublicInstance, ComboboxInputProps>(
           onFocus?.(event)
           if (!disabled) context.setOpen(true)
         }}
+        // Focus leaving the input closes the popup, like Base UI. Tab moves
+        // focus only when no handler prevented it, so a kept Tab keeps it open.
+        onBlur={(event: EventPayload) => {
+          onBlur?.(event)
+          context.setOpen(false)
+        }}
         onChange={(event: EventPayload) => {
           onChange?.(event)
           context.setInputValue(event.value ?? "")
@@ -257,10 +263,7 @@ export const ComboboxInput = forwardRef<PublicInstance, ComboboxInputProps>(
         onKeyDown={(event: KeyEvent) => {
           onKeyDown?.(event)
           if (disabled) return
-          // Tab keeps its default and moves focus on, so the popup must close.
-          if (event.key === "tab") {
-            context.setOpen(false)
-          } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+          if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
             context.moveActive(1)
           } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
             context.moveActive(-1)
@@ -337,19 +340,20 @@ export const ComboboxValue = forwardRef<PublicInstance, ComboboxValueProps>(
 export const ComboboxContent = forwardRef<PublicInstance, FloatingContentProps>(
   function ComboboxContent({ children, onMouseDownOutside, ...props }, ref) {
     const context = useComboboxContext("ComboboxContent")
-    useDismissLayer(context.open, () => context.setOpen(false))
     if (!context.open) return null
     return (
-      <FloatingLayer
-        {...props}
-        ref={ref}
-        onMouseDownOutside={(event) => {
-          onMouseDownOutside?.(event)
-          context.setOpen(false)
-        }}
-      >
-        {children}
-      </FloatingLayer>
+      <DismissableLayer onEscapeKeyDown={() => context.setOpen(false)}>
+        <FloatingLayer
+          {...props}
+          ref={ref}
+          onMouseDownOutside={(event) => {
+            onMouseDownOutside?.(event)
+            context.setOpen(false)
+          }}
+        >
+          {children}
+        </FloatingLayer>
+      </DismissableLayer>
     )
   }
 )

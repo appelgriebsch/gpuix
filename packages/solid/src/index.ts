@@ -82,7 +82,7 @@ export {
   mergeStyles,
   renderSlot,
   resolveStyle,
-  useDismissLayer,
+  DismissableLayer,
 } from "./components/floating.js"
 export * from "@gpuix/native/host"
 export { GpuixRenderer } from "@gpuix/native"

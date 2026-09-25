@@ -29,12 +29,22 @@ export interface RendererRootBinding {
 }
 
 /**
- * One open overlay: a dialog, menu, popover or tooltip. The most recently
- * opened layer is on top, and only the top layer closes on Escape.
+ * One open overlay: a dialog, menu, popover or tooltip. Only the top layer
+ * closes on Escape. A layer is above its parent and above every layer that
+ * opened before it.
  */
 export interface DismissLayer {
+  /** The layer this one is nested in, such as the Dialog around a Select. */
+  readonly parent?: DismissLayer
   /** Escape reached the window and no handler prevented it. */
   onEscapeKeyDown(event: KeyEvent): void
+}
+
+function isAncestor(ancestor: DismissLayer, layer: DismissLayer): boolean {
+  for (let current = layer.parent; current; current = current.parent) {
+    if (current === ancestor) return true
+  }
+  return false
 }
 
 export interface RendererState {
@@ -198,7 +208,11 @@ export function createRendererState(renderer: NativeRenderer): RendererState {
     },
     current: () => active,
     pushLayer(layer) {
-      layers.push(layer)
+      // A framework can open a nested layer before its parent in one commit
+      // (React runs child effects first), so nesting decides, not call order.
+      const firstChild = layers.findIndex((open) => isAncestor(layer, open))
+      if (firstChild < 0) layers.push(layer)
+      else layers.splice(firstChild, 0, layer)
       return () => {
         const index = layers.indexOf(layer)
         if (index >= 0) layers.splice(index, 1)

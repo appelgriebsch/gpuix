@@ -1,8 +1,7 @@
-import type { JSX } from "solid-js"
+import { createComponent, createContext, onCleanup, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import { pushDismissLayer } from "@gpuix/native/host"
-import type { HostProps, KeyEvent, StyleDesc } from "@gpuix/native/host"
-import { onCleanup } from "solid-js"
+import type { DismissLayer, HostProps, KeyEvent, StyleDesc } from "@gpuix/native/host"
 import { useGpuixRequired } from "../root.js"
 import { isHostElement } from "../host.js"
 import { jsx } from "../jsx-runtime.js"
@@ -41,13 +40,29 @@ export function floatingRootStyle(style?: StyleDesc): StyleDesc {
   return { display: "flex", position: "relative", alignItems: "start", ...style }
 }
 
+const DismissLayerContext = createContext<DismissLayer>()
+
+export interface DismissableLayerProps {
+  children?: JSX.Element
+  /** Escape reached the window, this layer is on top, and nothing prevented it. */
+  onEscapeKeyDown: (event: KeyEvent) => void
+}
+
 /**
- * Put an open overlay on the window's layer stack until the calling owner is
- * disposed. Call it inside the branch that exists only while the overlay is
- * open. Escape closes only the most recently opened layer.
+ * Put an open overlay on the window's layer stack while mounted. Escape closes
+ * only the top layer. Layers inside this one, such as a Select in a Dialog,
+ * are always above it.
  */
-export function useDismissLayer(onEscapeKeyDown: (event: KeyEvent) => void): void {
-  onCleanup(pushDismissLayer(useGpuixRequired(), { onEscapeKeyDown }))
+export function DismissableLayer(props: DismissableLayerProps): JSX.Element {
+  const layer: DismissLayer = {
+    parent: useContext(DismissLayerContext),
+    onEscapeKeyDown: (event) => props.onEscapeKeyDown(event),
+  }
+  onCleanup(pushDismissLayer(useGpuixRequired(), layer))
+  return createComponent(DismissLayerContext.Provider, {
+    value: layer,
+    get children() { return props.children },
+  })
 }
 
 export function composeHandlers<Event extends EventPayload>(

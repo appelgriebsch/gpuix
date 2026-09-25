@@ -1045,7 +1045,7 @@ describeNative("floating controls", () => {
       enter: focus=select-content text=Alpha|Alpha|Beta|Tip
       tab in popup: focus=select-content text=Alpha|Alpha|Beta|Tip
       escape: focus=select-trigger text=Alpha|Tip
-      tab: focus=tip-trigger text=Alpha|Tip
+      tab: focus=tip-trigger text=Alpha|Tip|Tip body
       tab: focus=outside text=Alpha|Tip
       click trigger: focus=select-content text=Alpha|Alpha|Beta|Tip
       click input: focus=outside text=Alpha|Tip"
@@ -1175,5 +1175,69 @@ describeNative("floating controls", () => {
     )
     testRoot.renderer.simulateKeystrokes("escape")
     expect(testRoot.renderer.getAllText()).toEqual(["Unsaved"])
+  })
+
+  it("puts a nested layer above its parent even when both open in one commit", () => {
+    // React runs the Select's layout effect before the Dialog's, so call order
+    // would put the Dialog on top and one Escape would close both.
+    testRoot.render(
+      <DialogPrimitive.Root defaultOpen>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Popup style={{ width: 300, padding: 16, backgroundColor: "#1e293b" }}>
+            <text>Dialog</text>
+            <Select defaultOpen items={[{ value: "a", label: "Alpha" }]} defaultValue="a">
+              <SelectTrigger style={triggerStyle}><SelectValue /></SelectTrigger>
+              <SelectContent style={contentStyle}>
+                <SelectItem value="a" style={itemStyle}>Menu item</SelectItem>
+              </SelectContent>
+            </Select>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    )
+    const steps = [testRoot.renderer.getAllText().join("|")]
+    testRoot.renderer.simulateKeystrokes("escape")
+    steps.push(testRoot.renderer.getAllText().join("|"))
+    testRoot.renderer.simulateKeystrokes("escape")
+    steps.push(testRoot.renderer.getAllText().join("|"))
+    expect(steps).toMatchInlineSnapshot(`
+      [
+        "Dialog|Alpha|Menu item",
+        "Dialog|Alpha",
+        "",
+      ]
+    `)
+  })
+
+  it("keeps a Combobox open when an ancestor keeps Tab", () => {
+    testRoot.render(
+      <div
+        style={{ display: "flex", flexDirection: "column", width: 400, height: 300, padding: 12, gap: 8 }}
+        onKeyDown={(event) => {
+          if (event.key === "tab") event.preventDefault()
+        }}
+      >
+        <Combobox items={["alpha", "beta"]} defaultOpen>
+          <ComboboxInput autoFocus testId="combo" style={{ width: 160, height: 28 }} />
+          <ComboboxContent style={contentStyle}>
+            <ComboboxList>
+              {(item) => <ComboboxItem key={item} value={item}>{item}</ComboboxItem>}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+        <div tabIndex={0} testId="after" style={{ width: 80, height: 24 }} />
+      </div>
+    )
+    testRoot.renderer.simulateKeystrokes("tab")
+    const focused = testRoot.renderer.getElement(testRoot.renderer.getFocusedElementId())
+    expect({ focused: focused?.testId, text: testRoot.renderer.getAllText() }).toMatchInlineSnapshot(`
+      {
+        "focused": "combo",
+        "text": [
+          "alpha",
+          "beta",
+        ],
+      }
+    `)
   })
 })

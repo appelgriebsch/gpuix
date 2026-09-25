@@ -2,17 +2,26 @@
 
 import React, {
   cloneElement,
+  createContext,
   forwardRef,
   isValidElement,
   useCallback,
+  useContext,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
 import type { ReactElement, ReactNode, Ref } from "react"
 import type { EventPayload } from "@gpuix/native"
 import { pushDismissLayer } from "@gpuix/native/host"
-import type { KeyEvent, Props, PublicInstance, StyleDesc } from "../types/host.js"
+import type {
+  DismissLayer,
+  KeyEvent,
+  Props,
+  PublicInstance,
+  StyleDesc,
+} from "../types/host.js"
 import { useGpuix } from "../hooks/use-gpuix.js"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
@@ -123,23 +132,33 @@ export function useControllableState<Value>({
   return [currentValue, setValue]
 }
 
-/**
- * Put an open overlay on the window's layer stack. Escape closes only the most
- * recently opened layer, after every `onKeyDown` had the chance to prevent it.
- */
-export function useDismissLayer(
-  open: boolean,
+const DismissLayerContext = createContext<DismissLayer | undefined>(undefined)
+
+export interface DismissableLayerProps {
+  children?: ReactNode
+  /** Escape reached the window, this layer is on top, and nothing prevented it. */
   onEscapeKeyDown: (event: KeyEvent) => void
-): void {
+}
+
+/**
+ * Put an open overlay on the window's layer stack while mounted. Escape closes
+ * only the top layer. Layers inside this one, such as a Select in a Dialog,
+ * are always above it.
+ */
+export function DismissableLayer({ children, onEscapeKeyDown }: DismissableLayerProps): ReactElement {
   const { renderer } = useGpuix()
+  const parent = useContext(DismissLayerContext)
   const latest = useRef(onEscapeKeyDown)
   latest.current = onEscapeKeyDown
+  const layer = useMemo<DismissLayer>(
+    () => ({ parent, onEscapeKeyDown: (event) => latest.current(event) }),
+    [parent]
+  )
   useLayoutEffect(() => {
-    if (!open || !renderer) return
-    return pushDismissLayer(renderer, {
-      onEscapeKeyDown: (event) => latest.current(event),
-    })
-  }, [open, renderer])
+    if (!renderer) return
+    return pushDismissLayer(renderer, layer)
+  }, [renderer, layer])
+  return <DismissLayerContext.Provider value={layer}>{children}</DismissLayerContext.Provider>
 }
 
 export function setRefs<T>(value: T, ...refs: Array<Ref<T> | undefined>): void {
