@@ -241,8 +241,8 @@ pub struct StyleDesc {
     // Uses Box to avoid infinite-size struct (StyleDesc contains StyleDesc).
     pub hover: Option<Box<StyleDesc>>,
     pub active: Option<Box<StyleDesc>>,
-    /// CSS `:focus-visible`: a focused control after keyboard input, or a
-    /// focused text field after any input. Replaces the default focus ring.
+    /// While focused after keyboard input, like CSS `:focus-visible`, but for
+    /// text fields too. Replaces the default focus ring.
     pub focus_visible: Option<Box<StyleDesc>>,
 }
 

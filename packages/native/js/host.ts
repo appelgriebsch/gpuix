@@ -218,9 +218,9 @@ export interface StyleDesc {
   // Nesting is one level deep: a state style cannot contain another.
   hover?: StateStyleDesc
   active?: StateStyleDesc
-  /** CSS `:focus-visible`: a focused control after keyboard input, or a
-   *  focused `<input>` / `<textarea>` after any input. Needs a focusable
-   *  element. Replaces the default focus ring. */
+  /** While focused after keyboard input (Tab), like CSS `:focus-visible`,
+   *  also on `<input>` / `<textarea>`. A mouse press never shows it. Needs a
+   *  focusable element. Replaces the default focus ring. */
   focusVisible?: StateStyleDesc
 }
 

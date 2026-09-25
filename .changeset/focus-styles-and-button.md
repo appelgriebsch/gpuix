@@ -6,7 +6,7 @@
 
 Focus is now visible by default, and there is a headless `Button`.
 
-- `focusVisible` nested style, like `hover` and `active`. It matches CSS `:focus-visible`: a control shows it after keyboard focus only, an `<input>` or `<textarea>` after any focus. GPUI applies it natively
+- `focusVisible` nested style, like `hover` and `active`. It applies after keyboard focus only, like CSS `:focus-visible`, on text fields too: a clicked `<input>` shows no ring. GPUI applies it natively
 - `outlineWidth`, `outlineColor`, `outlineOffset`: a line outside the border box that takes no layout space, so a focus ring moves nothing. It follows `borderRadius`
 - every focusable element gets a 2px `focusVisible` ring in the theme accent, like a browser, with the same rule. Its own `focusVisible` replaces it. `focusRingColor` (inherited) changes the colour for a subtree; `"transparent"` turns it off
 - `Select.Content` and `Dialog.Popup` draw no ring of their own; they are focused only to receive keys

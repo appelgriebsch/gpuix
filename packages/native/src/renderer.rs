@@ -4093,39 +4093,22 @@ fn focus_ring(color: gpui::Hsla) -> Option<gpui::Outline> {
     })
 }
 
-/// Which GPUI focus refinement implements CSS `:focus-visible` for an element.
-#[derive(Clone, Copy)]
-pub(crate) enum FocusVisibleRule {
-    /// Buttons and other controls: only after keyboard input
-    /// (`window.last_input_was_keyboard()`), so a click shows no ring.
-    Keyboard,
-    /// Text fields: whenever focused. A browser matches `:focus-visible` on a
-    /// clicked `<input>` too, because a field in use must look active.
-    Always,
-}
-
 /// The element's `focusVisible` style, or the inherited default ring when it
-/// declares none, like a browser. Call it right after `track_focus`: gpui
-/// applies focus refinements only to an element that tracks a focus handle.
+/// declares none. Keyboard focus only (`window.last_input_was_keyboard()`),
+/// for text fields too: a browser also rings a clicked `<input>`, but a ring
+/// around a field the user just clicked is noise. Call it right after
+/// `track_focus`: gpui applies focus refinements only to a tracked element.
 pub(crate) fn apply_focus_visible<E: gpui::InteractiveElement>(
     el: E,
     style: Option<&StyleDesc>,
     ring: Option<gpui::Outline>,
-    rule: FocusVisibleRule,
 ) -> E {
     let declared = style.and_then(|style| style.focus_visible.as_deref());
-    if declared.is_none() && ring.is_none() {
-        return el;
-    }
-    // gpui runs the refinement eagerly, so borrowing the style is fine.
-    let refine = |refinement: gpui::StyleRefinement| match (declared, ring) {
-        (Some(declared), _) => apply_styles(refinement, declared),
-        (None, Some(ring)) => gpui::Styled::outline(refinement, ring),
-        (None, None) => refinement,
-    };
-    match rule {
-        FocusVisibleRule::Keyboard => el.focus_visible(refine),
-        FocusVisibleRule::Always => el.focus(refine),
+    match (declared, ring) {
+        // gpui runs the refinement eagerly, so borrowing the style is fine.
+        (Some(declared), _) => el.focus_visible(|refinement| apply_styles(refinement, declared)),
+        (None, Some(ring)) => el.focus_visible(|refinement| gpui::Styled::outline(refinement, ring)),
+        (None, None) => el,
     }
 }
 
@@ -5325,12 +5308,7 @@ pub(crate) fn build_host_container(
 
     if let Some(handle) = ctx.focus_handles.get(&element.id) {
         el = el.track_focus(handle);
-        el = apply_focus_visible(
-            el,
-            style,
-            ctx.inherited.focus_ring,
-            FocusVisibleRule::Keyboard,
-        );
+        el = apply_focus_visible(el, style, ctx.inherited.focus_ring);
     }
     if let Some(tab_index) = element
         .custom_props

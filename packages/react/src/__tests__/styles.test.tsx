@@ -1803,27 +1803,32 @@ describeNative("focus styles", () => {
     return { png: shot(renderer, name), bounds: target(renderer), focused }
   }
 
-  it("draws the default ring like :focus-visible, without moving layout", () => {
+  it("draws the default ring on keyboard focus only, without moving layout", () => {
     const idle = run("idle", "none")
     const keyboard = run("keyboard", "tab")
     const mouse = run("mouse", "click")
     const off = run("ring-off", "tab", { ringColor: "transparent" })
     const custom = run("custom", "tab", { focusVisible: { backgroundColor: "#2563eb" } })
 
-    // A text field shows focusVisible after a mouse press too, like a browser.
+    // Text fields follow the same keyboard-only rule.
     const fieldIdle = run("field-idle", "none", { field: true })
     const fieldMouse = run("field-mouse", "click", { field: true })
+    // A focused field paints its caret, so compare with the ring turned off.
+    const fieldMouseNoRing = run("field-mouse-no-ring", "click", { field: true, ringColor: "transparent" })
+    const fieldKeyboard = run("field-keyboard", "tab", { field: true })
 
     expect([keyboard.focused, mouse.focused, off.focused, fieldMouse.focused])
       .toEqual(["target", "target", "target", "target"])
     expect(keyboard.bounds).toEqual(idle.bounds)
     expect(mouse.png.equals(idle.png)).toBe(true)
     expect(off.png.equals(idle.png)).toBe(true)
+    expect(fieldMouse.png.equals(fieldMouseNoRing.png)).toBe(true)
     if (!isCI) {
       expect(keyboard.png.equals(idle.png)).toBe(false)
       expect(custom.png.equals(keyboard.png)).toBe(false)
       expect(custom.png.equals(idle.png)).toBe(false)
-      expect(fieldMouse.png.equals(fieldIdle.png)).toBe(false)
+      expect(fieldKeyboard.png.equals(fieldIdle.png)).toBe(false)
+      expect(fieldKeyboard.png.equals(fieldMouse.png)).toBe(false)
     }
   })
 })
