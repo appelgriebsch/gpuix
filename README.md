@@ -3190,12 +3190,20 @@ see at a glance everything Tab can reach.
 Tab  ► [ Save ]  (dim New)  (dim Search)  (dim input)
 ```
 
-- A mouse press or a mouse move ends it, like `:focus-visible`
+- A mouse press, a drag, or a mouse move of more than 8px ends it. Smaller
+  jitter from a hand resting on the trackpad keeps it
 - A focused `<input>` or `<textarea>` dims nothing: typing is keyboard input
   too, and the caret already shows focus
 - The focused element's ancestors never dim, because opacity covers the subtree
 - An element with its own `focusVisible` never dims; `focusVisible: {}` opts it
   out. `Select.Content` and `Dialog.Popup` pass `{}`
+
+**Custom look: turn the dim off.** Pass `keyboardFocusDim: false` to `render()`
+(or `createTestRoot()`), then style focus yourself with `focusVisible`.
+
+```tsx
+render(<App />, { keyboardFocusDim: false })
+```
 
 **Outline, not border.** `outlineWidth`, `outlineColor` and `outlineOffset` draw
 a line outside the border box, like CSS `outline`. It takes **no layout space**,

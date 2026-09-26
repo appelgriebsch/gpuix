@@ -27,6 +27,7 @@ function recordingRenderer(): MutationRenderer & { styles: object[] } {
     setText() {},
     setEventListener() {},
     setRoot() {},
+    setKeyboardFocusDim() {},
     setCustomProp() {},
     flushMutations() {},
   }

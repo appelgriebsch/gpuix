@@ -82,6 +82,8 @@ export function createRoot(
     onEvent: rootEventHandlers.onEvent,
   }
   attachRoot(renderer, gpuixContainer)
+  // Sent on every root, so a remount without the option restores the default.
+  batchedRenderer.setKeyboardFocusDim(rootEventHandlers.keyboardFocusDim !== false)
   const { windowKeyEventId, windowSelectionEventId } = gpuixContainer
   try {
     renderer.setWindowKeyEvents?.(

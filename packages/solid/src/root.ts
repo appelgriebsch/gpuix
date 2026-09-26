@@ -94,6 +94,8 @@ export function createRoot(
       Boolean(rootHandlers.onKeyUp),
       binding.windowKeyEventId
     )
+    // Sent on every attach, so a remount without the option restores the default.
+    mutations.setKeyboardFocusDim(rootHandlers.keyboardFocusDim !== false)
     syncSelection()
   }
 

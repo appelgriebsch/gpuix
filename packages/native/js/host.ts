@@ -679,6 +679,7 @@ export interface MutationRenderer {
   setText(id: number, content: string): void
   setEventListener(id: number, eventType: string, hasHandler: boolean): void
   setRoot(id: number): void
+  setKeyboardFocusDim(enabled: boolean): void
   setCustomProp(id: number, key: string, value: object | string | number | boolean | null): void
   flushMutations(): void
 }
@@ -728,6 +729,12 @@ export interface WindowKeyEventHandlers {
    * true. Call `event.preventDefault()` in any `onKeyDown` to keep one Tab.
    */
   tabNavigation?: boolean
+  /**
+   * While a control without its own `focusVisible` style has keyboard focus,
+   * every other focusable element dims. Defaults to true. Set false to draw
+   * your own focus look with `focusVisible`.
+   */
+  keyboardFocusDim?: boolean
 }
 
 export interface RootEventHandlers extends WindowKeyEventHandlers {

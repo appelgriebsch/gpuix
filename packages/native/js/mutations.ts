@@ -56,6 +56,9 @@ export function createMutationQueue(
     setRoot(id) {
       enqueue(["setRoot", id])
     },
+    setKeyboardFocusDim(enabled) {
+      enqueue(["setKeyboardFocusDim", enabled])
+    },
     setCustomProp(id, key, value) {
       enqueue(["setCustomProp", id, key, value])
     },

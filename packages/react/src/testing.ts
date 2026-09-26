@@ -30,6 +30,7 @@ export function createTestRoot(options: TestWindowOptions = {}): TestRoot {
     onKeyUp: options.onKeyUp,
     onSelectionChange: options.onSelectionChange,
     tabNavigation: options.tabNavigation,
+    keyboardFocusDim: options.keyboardFocusDim,
   })
   const render = (node: ReactNode): void => {
     flushSync(() => root.render(node))

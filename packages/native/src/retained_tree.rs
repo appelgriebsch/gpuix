@@ -188,6 +188,8 @@ pub struct RetainedTree {
     pub styles: StyleTable,
     /// The root element ID set by appendChildToContainer.
     pub root_id: Option<u64>,
+    /// Dim other focusables while a control has keyboard focus. Set per root.
+    pub keyboard_focus_dim: bool,
     next_revision: u64,
 }
 
@@ -198,6 +200,7 @@ impl RetainedTree {
             motion_ids: HashSet::new(),
             styles: StyleTable::default(),
             root_id: None,
+            keyboard_focus_dim: true,
             next_revision: 1,
         }
     }

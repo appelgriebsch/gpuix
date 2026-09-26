@@ -46,6 +46,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Ro
     onKeyUp,
     onSelectionChange,
     tabNavigation,
+    keyboardFocusDim,
     onUncaughtError,
     ...windowOptions
   } = options
@@ -70,6 +71,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Ro
     onKeyUp,
     onSelectionChange,
     tabNavigation,
+    keyboardFocusDim,
     onUncaughtError,
   })
   if (!injected && host.renderer instanceof GpuixRenderer && !host.loop) {

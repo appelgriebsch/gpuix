@@ -1770,8 +1770,8 @@ describeNative("motion", () => {
 describeNative("focus styles", () => {
   // One renderer per scene, so each capture is the frame after the input
   // that decided focus-visible (a keyboard Tab or a mouse press).
-  function scene({ focusVisible, otherFocusVisible, field }: { focusVisible?: object; otherFocusVisible?: object; field?: boolean } = {}) {
-    const root = createTestRoot({ width: 240, height: 120 })
+  function scene({ focusVisible, otherFocusVisible, field, keyboardFocusDim }: { focusVisible?: object; otherFocusVisible?: object; field?: boolean; keyboardFocusDim?: boolean } = {}) {
+    const root = createTestRoot({ width: 240, height: 120, keyboardFocusDim })
     const targetStyle = { width: 80, height: 40, borderRadius: 8, backgroundColor: "#303030", focusVisible }
     root.render(
       <div style={{ display: "flex", gap: 24, padding: 32, width: "100%", height: "100%", backgroundColor: "#101010" }}>
@@ -1810,15 +1810,18 @@ describeNative("focus styles", () => {
     const mouse = run("mouse", "click")
     // `focusVisible` on an element opts it out of the dim.
     const optedOut = run("opted-out", "tab", { otherFocusVisible: {} })
+    // The root option turns the dim off for the whole window.
+    const dimOff = run("dim-off", "tab", { keyboardFocusDim: false })
     // Typing is keyboard input too, so a focused text field dims nothing.
     const fieldMouse = run("field-mouse", "click", { field: true })
     const fieldKeyboard = run("field-keyboard", "tab", { field: true })
 
-    expect([keyboard.focused, mouse.focused, fieldKeyboard.focused])
-      .toEqual(["target", "target", "target"])
+    expect([keyboard.focused, mouse.focused, fieldKeyboard.focused, dimOff.focused])
+      .toEqual(["target", "target", "target", "target"])
     expect(keyboard.bounds).toEqual(idle.bounds)
     expect(mouse.png.equals(idle.png)).toBe(true)
     expect(optedOut.png.equals(idle.png)).toBe(true)
+    expect(dimOff.png.equals(idle.png)).toBe(true)
     expect(fieldKeyboard.png.equals(fieldMouse.png)).toBe(true)
     if (!isCI) expect(keyboard.png.equals(idle.png)).toBe(false)
   })

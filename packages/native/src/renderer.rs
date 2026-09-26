@@ -1373,6 +1373,7 @@ impl GpuixRenderer {
     ///   ["setText",          id, "content"]
     ///   ["setEventListener", id, "eventType", true|false]
     ///   ["setRoot",          id]
+    ///   ["setKeyboardFocusDim", true|false]
     ///   ["setCustomProp",    id, "key", value]
     ///
     /// Returns accumulated destroyed IDs from all destroyElement ops.
@@ -4651,7 +4652,7 @@ impl GpuixView {
         window: &gpui::Window,
         cx: &gpui::App,
     ) -> Option<Arc<[u64]>> {
-        if !window.last_input_was_keyboard() {
+        if !tree.keyboard_focus_dim || !window.last_input_was_keyboard() {
             return None;
         }
         let focused = window.focused(cx)?.id();
@@ -6122,6 +6123,9 @@ enum BatchOp<'a> {
     SetRoot {
         id: u64,
     },
+    SetKeyboardFocusDim {
+        enabled: bool,
+    },
     SetCustomProp {
         id: u64,
         key: String,
@@ -6312,6 +6316,9 @@ impl<'de> serde::Deserialize<'de> for BatchOp<'de> {
                     "setRoot" => BatchOp::SetRoot {
                         id: next_id(&mut seq, "id")?,
                     },
+                    "setKeyboardFocusDim" => BatchOp::SetKeyboardFocusDim {
+                        enabled: next_arg(&mut seq, "enabled")?,
+                    },
                     "setCustomProp" => BatchOp::SetCustomProp {
                         id: next_id(&mut seq, "id")?,
                         key: next_arg::<A, StrArg>(&mut seq, "prop key")?.0.into_owned(),
@@ -6429,6 +6436,9 @@ pub fn apply_batch_to_tree(tree: &mut RetainedTree, bytes: &[u8]) -> BatchResult
             }
             BatchOp::SetRoot { id } => {
                 tree.root_id = Some(id);
+            }
+            BatchOp::SetKeyboardFocusDim { enabled } => {
+                tree.keyboard_focus_dim = enabled;
             }
             BatchOp::SetCustomProp { id, key, value } => {
                 tree.set_custom_prop(id, key, value);
