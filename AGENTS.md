@@ -897,25 +897,37 @@ Do not let them move through your machine.
 
 Release order:
 
-1. Consume the changesets, bump both packages, write `CHANGELOG.md`, commit
+1. Consume the changesets, bump all three packages, write `CHANGELOG.md`, commit
 2. `git push origin HEAD:main`. CI starts
-3. Tag and create the release **now**, while the six native builds run:
+3. Tag and create the releases **now**, while the native builds run:
 
 ```bash
-git tag '@gpuix/native@0.5.0' && git tag '@gpuix/react@0.5.0'
-git push origin '@gpuix/native@0.5.0' '@gpuix/react@0.5.0'
+git tag '@gpuix/native@0.5.0' && git tag '@gpuix/react@0.5.0' && git tag '@gpuix/solid@0.5.0'
+git push origin '@gpuix/native@0.5.0' '@gpuix/react@0.5.0' '@gpuix/solid@0.5.0'
 gh release create '@gpuix/react@0.5.0' --title '@gpuix/react@0.5.0' \
-  --notes-file /tmp/notes.md --latest
+  --notes-file /tmp/react-notes.md --latest
+gh release create '@gpuix/solid@0.5.0' --title '@gpuix/solid@0.5.0' \
+  --notes-file /tmp/solid-notes.md --latest=false
 ```
 
-4. CI publishes npm, then uploads `example-chat-*` to that release with `--clobber`
+4. CI publishes npm, then uploads `example-chat-*` to the React release with `--clobber`
+
+**Each adapter gets its own GitHub release**, because a Solid user never installs
+React and will not look under a React tag. Native has no release: users reach it
+through an adapter, so its changes go into both adapters' notes. Skip the Solid
+release only when nothing in the version affects Solid users.
+
+The React release stays `--latest` because it carries the example binaries; the
+upload step looks it up by name. GitHub marks only one release as latest, so Solid
+uses `--latest=false`. It is still a normal, visible release.
 
 The `publish` job only runs after every build and both test jobs, which is more than
-ten minutes, so step 3 has plenty of slack. Use the current `CHANGELOG.md` section
-as the notes. Never `--draft`, never `--prerelease`.
+ten minutes, so step 3 has plenty of slack. Write the notes from the current
+`CHANGELOG.md` section, keeping only items relevant to each adapter. Never
+`--draft`, never `--prerelease`.
 
 **If CI fails and you push fixes, re-point the tags.** The tag then names an older
-commit than the one npm was built from. Delete both tags locally and on the remote,
+commit than the one npm was built from. Delete all three tags locally and on the remote,
 recreate them on the commit that published, and push again. The upload step matches
 on the tag *name*, so the release itself keeps its notes and its assets.
 
