@@ -52,6 +52,7 @@ export declare class GpuixRenderer {
    *   ["setText",          id, "content"]
    *   ["setEventListener", id, "eventType", true|false]
    *   ["setRoot",          id]
+   *   ["setKeyboardFocusDim", true|false]
    *   ["setCustomProp",    id, "key", value]
    *
    * Returns accumulated destroyed IDs from all destroyElement ops.
@@ -151,8 +152,11 @@ export declare class GpuixRenderer {
   getScrollOffset(elementId: number): Array<number> | null
   /** Scroll this element's nearest scroll parent until the element is visible. */
   scrollIntoView(elementId: number): void
-  /** Paint packed RGBA pixels onto an `<img>` host node. */
-  setImagePixels(elementId: number, width: number, height: number, pixels: Buffer): void
+  /**
+   * Paint packed pixels onto an `<img>` host node. `format` is `"rgba"`
+   * (default) or `"bgra"`; BGRA skips the per-pixel swizzle.
+   */
+  setImagePixels(elementId: number, width: number, height: number, pixels: Buffer, format?: string | undefined | null): void
   /**
    * Decode PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or Netpbm bytes onto
    * an `<img>` host node. Prefer `setImagePixels` for live waveforms.
@@ -348,8 +352,8 @@ export declare class TestGpuixRenderer {
   scrollToItem(elementId: number, index: number, offsetInItem?: number | undefined | null): void
   /** Scroll this element's nearest scroll parent until the element is visible. */
   scrollIntoView(elementId: number): void
-  /** Packed RGBA pixels onto an `<img>` host node. */
-  setImagePixels(elementId: number, width: number, height: number, pixels: Buffer): void
+  /** Packed `"rgba"` (default) or `"bgra"` pixels onto an `<img>` host node. */
+  setImagePixels(elementId: number, width: number, height: number, pixels: Buffer, format?: string | undefined | null): void
   /** Encoded image bytes onto an `<img>` host node. */
   setImage(elementId: number, bytes: Buffer): void
   /**
