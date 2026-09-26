@@ -56,8 +56,14 @@ function attachHostMethods(instance: Instance): void {
   img.setImage = (bytes) => {
     container.nativeRenderer.setImage?.(img.id, bytes as Buffer)
   }
-  img.setImagePixels = (width, height, pixels) => {
-    container.nativeRenderer.setImagePixels?.(img.id, width, height, pixels as Buffer)
+  img.setImagePixels = (width, height, pixels, options) => {
+    container.nativeRenderer.setImagePixels?.(
+      img.id,
+      width,
+      height,
+      pixels as Buffer,
+      options?.format,
+    )
   }
 }
 

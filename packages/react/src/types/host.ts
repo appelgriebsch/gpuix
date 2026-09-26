@@ -5,6 +5,7 @@ import type {
   ElementType,
   EventHandlerMap,
   HostProps,
+  ImagePixelsOptions,
   InputProps as NativeInputProps,
   TextareaProps as NativeTextareaProps,
   ImgProps as NativeImgProps,
@@ -102,7 +103,12 @@ export interface Instance {
 export interface ImgInstance extends Instance {
   type: "img"
   setImage(bytes: Buffer | Uint8Array): void
-  setImagePixels(width: number, height: number, pixels: Buffer | Uint8Array): void
+  setImagePixels(
+    width: number,
+    height: number,
+    pixels: Buffer | Uint8Array,
+    options?: ImagePixelsOptions,
+  ): void
 }
 
 export interface TextInstance {

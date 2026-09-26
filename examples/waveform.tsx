@@ -6,16 +6,17 @@ const WIDTH = 720
 const HEIGHT = 96
 const PIXEL_RATIO = 2
 
-function rgbaWaveform(phase: number): Buffer {
+// BGRA is GPUI's native byte order, so the upload skips a per-pixel swizzle.
+function bgraWaveform(phase: number): Buffer {
   const width = WIDTH * PIXEL_RATIO
   const height = HEIGHT * PIXEL_RATIO
   const bytes = Buffer.alloc(width * height * 4)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4
-      bytes[i] = 18
+      bytes[i] = 38
       bytes[i + 1] = 22
-      bytes[i + 2] = 38
+      bytes[i + 2] = 18
       bytes[i + 3] = 255
     }
   }
@@ -24,9 +25,9 @@ function rgbaWaveform(phase: number): Buffer {
     const sample = Math.sin((x / width) * Math.PI * 6 + phase) * 0.72
     const y = Math.round(mid - sample * mid)
     const i = (y * width + x) * 4
-    bytes[i] = 92
+    bytes[i] = 255
     bytes[i + 1] = 169
-    bytes[i + 2] = 255
+    bytes[i + 2] = 92
     bytes[i + 3] = 255
   }
   return bytes
@@ -39,7 +40,8 @@ function Waveform({ phase }: { phase: number }) {
     img.current?.setImagePixels(
       WIDTH * PIXEL_RATIO,
       HEIGHT * PIXEL_RATIO,
-      rgbaWaveform(phase),
+      bgraWaveform(phase),
+      { format: 'bgra' },
     )
   }, [phase])
 

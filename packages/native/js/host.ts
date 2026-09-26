@@ -533,6 +533,14 @@ export interface ImgProps extends HostProps {
   alt?: string
 }
 
+/** Byte order of a `setImagePixels` buffer. Alpha is straight in both. */
+export type ImagePixelFormat = "rgba" | "bgra"
+
+export interface ImagePixelsOptions {
+  /** Default `"rgba"`. `"bgra"` is GPUI's native order and skips a per-pixel pass. */
+  format?: ImagePixelFormat
+}
+
 // Props for monochrome SVGs tinted by style.color.
 export interface SvgProps extends HostProps {
   /** Desktop local path. Use source for portable browser rendering. */

@@ -431,6 +431,7 @@ enum UiCommand {
         width: u32,
         height: u32,
         bytes: Vec<u8>,
+        format: crate::custom_elements::img::PixelFormat,
         response: SyncSender<std::result::Result<(), String>>,
     },
     SetImage {
@@ -615,10 +616,11 @@ async fn run_ui_commands(
                 width,
                 height,
                 bytes,
+                format,
                 response,
             } => window.update(cx, move |view, window, cx| {
                 response
-                    .send(view.set_image_pixels(id, width, height, bytes, window, cx))
+                    .send(view.set_image_pixels(id, width, height, bytes, format, window, cx))
                     .ok();
             }),
             UiCommand::SetImage {
@@ -2162,7 +2164,8 @@ impl GpuixRenderer {
         Err(Error::from_reason("Unsupported operating system"))
     }
 
-    /// Paint packed RGBA pixels onto an `<img>` host node.
+    /// Paint packed pixels onto an `<img>` host node. `format` is `"rgba"`
+    /// (default) or `"bgra"`; BGRA skips the per-pixel swizzle.
     #[napi]
     pub fn set_image_pixels(
         &self,
@@ -2170,15 +2173,18 @@ impl GpuixRenderer {
         width: f64,
         height: f64,
         pixels: Buffer,
+        format: Option<String>,
     ) -> Result<()> {
         let id = to_element_id(element_id)?;
         let width = dimension_u32(width, "width")?;
         let height = dimension_u32(height, "height")?;
+        let format = crate::custom_elements::img::PixelFormat::parse(format.as_deref())
+            .map_err(Error::from_reason)?;
         let bytes = pixels.to_vec();
         #[cfg(target_os = "macos")]
         {
             return update_window(move |view, window, cx| {
-                view.set_image_pixels(id, width, height, bytes, window, cx)
+                view.set_image_pixels(id, width, height, bytes, format, window, cx)
             })?
             .map_err(Error::from_reason);
         }
@@ -2191,6 +2197,7 @@ impl GpuixRenderer {
                 width,
                 height,
                 bytes,
+                format,
                 response,
             })?;
             return recv_ui_response(receiver, "the image pixel upload")?
@@ -3096,15 +3103,18 @@ impl WebGpuixRenderer {
         width: f64,
         height: f64,
         pixels: js_sys::Uint8Array,
+        format: Option<String>,
     ) -> Result<(), wasm_bindgen::JsValue> {
         let id = web_element_id(element_id)?;
         let width = raw_dimension_u32(width, "width")
             .map_err(|error| wasm_bindgen::JsValue::from_str(&error))?;
         let height = raw_dimension_u32(height, "height")
             .map_err(|error| wasm_bindgen::JsValue::from_str(&error))?;
+        let format = crate::custom_elements::img::PixelFormat::parse(format.as_deref())
+            .map_err(|error| wasm_bindgen::JsValue::from_str(&error))?;
         let bytes = pixels.to_vec();
         update_web_window(move |view, window, cx| {
-            view.set_image_pixels(id, width, height, bytes, window, cx)
+            view.set_image_pixels(id, width, height, bytes, format, window, cx)
                 .map_err(|error| wasm_bindgen::JsValue::from_str(&error))
         })?
     }
@@ -3752,10 +3762,12 @@ impl GpuixView {
         width: u32,
         height: u32,
         bytes: Vec<u8>,
+        format: crate::custom_elements::img::PixelFormat,
         window: &mut gpui::Window,
         cx: &mut gpui::Context<Self>,
     ) -> std::result::Result<(), String> {
-        let image = crate::custom_elements::img::render_image_from_rgba(width, height, bytes)?;
+        let image =
+            crate::custom_elements::img::render_image_from_pixels(width, height, bytes, format)?;
         self.set_live_image(id, image, window, cx)
     }
 

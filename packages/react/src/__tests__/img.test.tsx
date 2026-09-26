@@ -362,6 +362,55 @@ describeNative("custom element: img", () => {
       }
     })
 
+    it("paints bgra pixels identical to the same rgba color", () => {
+      let imgRef: ImgInstance | null = null
+      testRoot.render(
+        <img
+          ref={(instance) => {
+            imgRef = instance as ImgInstance | null
+          }}
+          testId="format"
+          style={{ width: 240, height: 140 }}
+        />,
+      )
+      const paths = ["rgba", "bgra", "bgra-misread"].map(
+        (name) => `${SHOTS_DIR}/gpuix-img-pixels-${name}.png`,
+      )
+      const [rgbaPath, bgraPath, misreadPath] = paths as [string, string, string]
+      for (const path of paths) if (fs.existsSync(path)) fs.unlinkSync(path)
+
+      imgRef!.setImagePixels(240, 140, rgbaFill(240, 140, 220, 120, 20))
+      testRoot.renderer.flush()
+      testRoot.renderer.captureScreenshot(rgbaPath)
+
+      // Same color, bytes stored as B, G, R, A.
+      imgRef!.setImagePixels(240, 140, rgbaFill(240, 140, 20, 120, 220), {
+        format: "bgra",
+      })
+      testRoot.renderer.flush()
+      testRoot.renderer.captureScreenshot(bgraPath)
+
+      // RGBA bytes declared as BGRA must paint red and blue swapped.
+      imgRef!.setImagePixels(240, 140, rgbaFill(240, 140, 220, 120, 20), {
+        format: "bgra",
+      })
+      testRoot.renderer.flush()
+      testRoot.renderer.captureScreenshot(misreadPath)
+
+      const rgbaShot = fs.readFileSync(rgbaPath)
+      expect(rgbaShot.equals(fs.readFileSync(bgraPath))).toBe(true)
+      // A flat fill compresses to near-identical PNG bytes, so compare exactly.
+      if (!isCI) {
+        expect(rgbaShot.equals(fs.readFileSync(misreadPath))).toBe(false)
+      }
+
+      expect(() =>
+        imgRef!.setImagePixels(240, 140, rgbaFill(240, 140, 0, 0, 0), {
+          format: "argb" as "bgra",
+        }),
+      ).toThrowErrorMatchingInlineSnapshot(`[Error: Unknown pixel format "argb", expected "rgba" or "bgra"]`)
+    })
+
     it("paints encoded bytes from setImage on the img ref", () => {
       let imgRef: ImgInstance | null = null
       const emptyPath = `${SHOTS_DIR}/gpuix-img-setimage-empty.png`

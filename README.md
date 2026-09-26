@@ -2778,8 +2778,21 @@ For a waveform, a canvas dump, or any frame you already have in memory, push
 **raw bytes** through the `<img>` ref. That call skips JSON.
 
 `setImage` takes encoded **PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or
-Netpbm**. `setImagePixels` takes packed **RGBA**. Prefer pixels for a live
-waveform. There is no PNG encode, and no JSON.
+Netpbm**. `setImagePixels` takes packed **RGBA** by default. Prefer pixels for
+a live waveform. There is no PNG encode, and no JSON.
+
+Pass `{ format: 'bgra' }` when your source already produces **BGRA**. That is
+GPUI's native order, so the upload skips a full per-pixel swizzle. ffmpeg
+(`-pix_fmt bgra`), VideoToolbox, and node-canvas `toBuffer('raw')` all produce
+it.
+
+```ts
+img.current?.setImagePixels(width, height, rgba)
+img.current?.setImagePixels(width, height, bgra, { format: 'bgra' })
+```
+
+Do not compress frames before the call. A PNG or JPEG encode costs far more
+than the copy it saves.
 
 Call either from `useLayoutEffect` after mount. A later React `src` **change**
 overwrites the pixels. Alpha is straight, not premultiplied.
@@ -2813,20 +2826,22 @@ function Waveform({ samples }: { samples: Float32Array }) {
       else ctx.lineTo(x, y)
     }
     ctx.stroke()
-    const { data } = ctx.getImageData(0, 0, width, height)
-    img.current?.setImagePixels(width, height, data)
+    img.current?.setImagePixels(width, height, canvas.toBuffer('raw'), {
+      format: 'bgra',
+    })
   }, [samples])
 
   return <img ref={img} objectFit="fill" style={{ width: 800, height: 80 }} />
 }
 ```
 
-`getImageData().data` is packed **RGBA**. That is what `setImagePixels` wants.
-Do not use node-canvas `toBuffer('raw')`. That buffer is BGRA or ARGB, native
-endian, and may include stride padding.
+node-canvas `toBuffer('raw')` is **BGRA** on little-endian machines (every
+Apple Silicon, x86, and ARM64 desktop), with no row padding. It is
+**premultiplied**, and GPUIX expects straight alpha. That is identical only for
+opaque pixels, which is why the example fills the background first. For a
+transparent canvas, use `getImageData().data` with the default `'rgba'` format.
 
-The [waveform example](./examples/waveform.tsx) writes the same RGBA layout by
-hand, at 2x.
+The [waveform example](./examples/waveform.tsx) writes BGRA by hand, at 2x.
 
 ### `<svg>`
 

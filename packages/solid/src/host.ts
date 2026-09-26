@@ -14,6 +14,7 @@ import type {
   ElementType,
   EventHandlerMap,
   HostProps,
+  ImagePixelsOptions,
   MutationRenderer,
   NativeRenderer,
   StyleDesc,
@@ -84,13 +85,15 @@ export class HostElement {
   setImagePixels(
     width: number,
     height: number,
-    pixels: Buffer | Uint8Array
+    pixels: Buffer | Uint8Array,
+    options?: ImagePixelsOptions
   ): void {
     this.root?.nativeRenderer.setImagePixels?.(
       this.id,
       width,
       height,
-      pixels as Buffer
+      pixels as Buffer,
+      options?.format
     )
   }
 }

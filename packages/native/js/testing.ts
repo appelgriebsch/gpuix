@@ -19,6 +19,7 @@ import type {
   DebugFrameOverlayStats,
   ElementBounds,
   HighlightMatch,
+  ImagePixelFormat,
   NativeRenderer,
   PathPromptOptions,
   WindowKeyEventHandlers,
@@ -84,7 +85,8 @@ interface NativeTestRendererApi extends NativeRenderer {
     elementId: number,
     width: number,
     height: number,
-    pixels: Buffer | Uint8Array
+    pixels: Buffer | Uint8Array,
+    format?: ImagePixelFormat
   ): void
   getScrollOffset(elementId: number): number[] | null
   getListScrollTop(elementId: number): number[] | null
@@ -569,10 +571,11 @@ export class TestRenderer implements NativeRenderer {
     elementId: number,
     width: number,
     height: number,
-    pixels: Buffer | Uint8Array
+    pixels: Buffer | Uint8Array,
+    format?: ImagePixelFormat
   ): void {
     this.native.flush()
-    this.native.setImagePixels(elementId, width, height, pixels as Buffer)
+    this.native.setImagePixels(elementId, width, height, pixels as Buffer, format)
     this.native.flush()
   }
 
